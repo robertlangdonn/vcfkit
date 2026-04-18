@@ -181,6 +181,7 @@ fn missing_info_field_does_not_pass() {
     let recs = parse_vcf_records(&out);
     // In missing_fields.vcf, only one record has an AF value (AF=.) and it's
     // missing — so the filter should select zero records.
+    assert_eq!(recs.len(), 0, "expected no records to pass when INFO field is missing");
     for r in &recs {
         assert!(
             r.info.contains_key("AF") && !r.info["AF"].is_empty() && r.info["AF"] != ".",
@@ -306,6 +307,63 @@ fn multiline_info_compound_filter() {
     //   chr17:41194312 AF=0.06 missense ✗ (AF too high)
     // → 4 records expected.
     assert_eq!(recs.len(), 4, "expected 4 AF<0.05 AND missense records");
+}
+
+/// 16. `~` on a multi-valued INFO array: any element containing the substring
+/// should match.
+///
+/// The inline VCF has `CSQ=intron_variant,missense_variant` for one record and
+/// `CSQ=synonymous_variant` for another. Filtering with `INFO/CSQ ~ 'missense'`
+/// should return only the first record.
+#[test]
+fn csq_contains_matches_any_array_element() {
+    // Build a small inline VCF with a comma-separated multi-value CSQ field.
+    let vcf: &[u8] = b"##fileformat=VCFv4.2\n\
+##contig=<ID=chr1,length=248956422>\n\
+##INFO=<ID=CSQ,Number=.,Type=String,Description=\"Consequence\">\n\
+#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\n\
+chr1\t100\t.\tA\tT\t.\t.\tCSQ=intron_variant,missense_variant\n\
+chr1\t200\t.\tC\tG\t.\t.\tCSQ=synonymous_variant\n";
+
+    let (out, stats) = run_filter(vcf, "INFO/CSQ ~ 'missense'", false);
+    let recs = parse_vcf_records(&out);
+    assert_eq!(stats.input_records, 2);
+    assert_eq!(
+        recs.len(),
+        1,
+        "expected exactly 1 record: the one with 'missense_variant' in CSQ"
+    );
+    assert!(
+        recs[0].info["CSQ"].contains("missense"),
+        "CSQ field did not contain 'missense': {}",
+        recs[0].info["CSQ"]
+    );
+}
+
+/// 17. Bare `!` negation without parentheses.
+///
+/// `! FILTER == 'PASS'` is equivalent to `!(FILTER == 'PASS')` because `!`
+/// applies to the next atom. With 3 PASS and 2 LowQual records in `TYPED_VCF`,
+/// we expect the 2 non-PASS records.
+#[test]
+fn bare_not_negation_without_parens() {
+    // `!` binds to the next unary/atom, so `! FILTER == 'PASS'` should parse
+    // as `!(FILTER == 'PASS')` and keep the two LowQual records.
+    let (out, stats) = run_filter(TYPED_VCF, "! FILTER == 'PASS'", false);
+    let recs = parse_vcf_records(&out);
+    assert_eq!(
+        recs.len(),
+        2,
+        "expected 2 non-PASS records, got {} (stats: {stats:?})",
+        recs.len()
+    );
+    for r in &recs {
+        assert_ne!(
+            r.filter,
+            vec!["PASS".to_string()],
+            "record should not have PASS filter"
+        );
+    }
 }
 
 // ── CLI-level smoke test ─────────────────────────────────────────────────────

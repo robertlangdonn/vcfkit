@@ -131,6 +131,7 @@ pub fn filter<R: BufRead, W: Write>(
         .read_header()
         .map_err(|e| VcfkitError::Other(format!("failed to read VCF header: {e}")))?;
 
+    // TODO: honour options.output_format for BCF output (deferred — same as normalize/liftover)
     let mut vcf_writer = vcf::io::Writer::new(writer);
     vcf_writer
         .write_header(&header)
@@ -234,7 +235,7 @@ fn eval_expr(e: &Expr, rec: &RecordBuf, hdr: &vcf::Header) -> Result<bool, Vcfki
         Expr::Compare(lhs, op, rhs) => {
             let lv = load_operand(lhs, rec, hdr);
             let rv = load_operand(rhs, rec, hdr);
-            Ok(compare(&lv, *op, &rv))
+            compare(&lv, *op, &rv)
         }
         Expr::Exists(field) => Ok(!matches!(load_field(field, rec, hdr), Scalar::Missing)),
     }
@@ -341,31 +342,37 @@ fn info_array_first(
             .and_then(|o| o.as_ref())
             .map(|c| Scalar::String(c.to_string()))
             .unwrap_or(Scalar::Missing),
-        InfoArray::String(v) => v
-            .first()
-            .and_then(|o| o.as_ref())
-            .map(|s| {
-                // If the CSQ-style value should be numeric per the header,
-                // attempt to coerce; otherwise keep as string.
-                if let Some(t) = declared_type {
-                    use noodles::vcf::header::record::value::map::info::Type as InfoType;
-                    match t {
-                        InfoType::Integer => {
-                            if let Ok(n) = s.parse::<i64>() {
-                                return Scalar::Integer(n);
-                            }
+        InfoArray::String(v) => {
+            // For numeric coercion, use the first element only.
+            // For string operations (including `~` contains), join all
+            // elements with a comma so that any element can match.
+            let elements: Vec<&str> = v
+                .iter()
+                .filter_map(|o| o.as_ref().map(|s| s.as_str()))
+                .collect();
+            if elements.is_empty() {
+                return Scalar::Missing;
+            }
+            // Try numeric coercion from the first element.
+            if let Some(t) = declared_type {
+                use noodles::vcf::header::record::value::map::info::Type as InfoType;
+                match t {
+                    InfoType::Integer => {
+                        if let Ok(n) = elements[0].parse::<i64>() {
+                            return Scalar::Integer(n);
                         }
-                        InfoType::Float => {
-                            if let Ok(x) = s.parse::<f64>() {
-                                return Scalar::Float(x);
-                            }
-                        }
-                        _ => {}
                     }
+                    InfoType::Float => {
+                        if let Ok(x) = elements[0].parse::<f64>() {
+                            return Scalar::Float(x);
+                        }
+                    }
+                    _ => {}
                 }
-                Scalar::String(s.clone())
-            })
-            .unwrap_or(Scalar::Missing),
+            }
+            // Return all elements joined so `~` can match any of them.
+            Scalar::String(elements.join(","))
+        }
     }
 }
 
@@ -442,46 +449,56 @@ fn format_genotype(g: &Genotype) -> String {
 }
 
 /// Compare two scalars. A missing operand always evaluates to `false`.
-fn compare(lhs: &Scalar, op: CmpOp, rhs: &Scalar) -> bool {
+fn compare(lhs: &Scalar, op: CmpOp, rhs: &Scalar) -> Result<bool, VcfkitError> {
     // Any comparison with a missing operand is false.
     if matches!(lhs, Scalar::Missing) || matches!(rhs, Scalar::Missing) {
-        return false;
+        return Ok(false);
     }
 
     match op {
-        CmpOp::Contains => match (lhs, rhs) {
+        CmpOp::Contains => Ok(match (lhs, rhs) {
             (Scalar::String(a), Scalar::String(b)) => a.contains(b.as_str()),
             _ => false,
-        },
-        CmpOp::NotContains => match (lhs, rhs) {
+        }),
+        CmpOp::NotContains => Ok(match (lhs, rhs) {
             (Scalar::String(a), Scalar::String(b)) => !a.contains(b.as_str()),
             _ => false,
-        },
+        }),
         _ => {
             // Numeric vs numeric (or either side numeric) -> numeric compare.
             // String vs string -> string compare.
             if let (Some(a), Some(b)) = (to_f64(lhs), to_f64(rhs)) {
-                match op {
+                Ok(match op {
                     CmpOp::Lt => a < b,
                     CmpOp::Le => a <= b,
                     CmpOp::Gt => a > b,
                     CmpOp::Ge => a >= b,
                     CmpOp::Eq => a == b,
                     CmpOp::Ne => a != b,
-                    _ => unreachable!(),
-                }
+                    CmpOp::Contains | CmpOp::NotContains => {
+                        // These are handled before this branch in the caller
+                        return Err(VcfkitError::Other(
+                            "internal: contains op in numeric comparison".to_string(),
+                        ));
+                    }
+                })
             } else {
                 let sa = scalar_to_string(lhs);
                 let sb = scalar_to_string(rhs);
-                match op {
+                Ok(match op {
                     CmpOp::Lt => sa < sb,
                     CmpOp::Le => sa <= sb,
                     CmpOp::Gt => sa > sb,
                     CmpOp::Ge => sa >= sb,
                     CmpOp::Eq => sa == sb,
                     CmpOp::Ne => sa != sb,
-                    _ => unreachable!(),
-                }
+                    CmpOp::Contains | CmpOp::NotContains => {
+                        // These are handled before this branch in the caller
+                        return Err(VcfkitError::Other(
+                            "internal: contains op in numeric comparison".to_string(),
+                        ));
+                    }
+                })
             }
         }
     }
@@ -605,13 +622,10 @@ mod parser {
     /// Try a comparison first; if that fails, fall back to a bare field
     /// reference as an existence check.
     fn comparison_or_existence(i: &str) -> IResult<&str, Expr> {
-        // Attempt a full comparison parse; if that doesn't commit, parse a
-        // bare field as an existence check.
-        if let Ok((rest, c)) = comparison(i) {
-            return Ok((rest, c));
-        }
-        let (rest, f) = ws(field)(i)?;
-        Ok((rest, Expr::Exists(f)))
+        alt((
+            comparison,
+            map(ws(field), Expr::Exists),
+        ))(i)
     }
 
     fn comparison(i: &str) -> IResult<&str, Expr> {
