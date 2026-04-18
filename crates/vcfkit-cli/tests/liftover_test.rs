@@ -661,3 +661,69 @@ chr1\t10\t.\tT\t<DEL>\t50\tPASS\t.\tGT\t0/1\n";
     assert_eq!(recs[0].alt_alleles, vec!["<DEL>".to_string()]);
     assert_eq!(recs[0].pos, 110);
 }
+
+// ── 16. multi-block `-` strand chain: tgt_cursor advances correctly ───────────
+//
+// Chain layout:
+//   chain 1000 chr1 50 + 0 25 chr2 100 - 0 23 1
+//   10 5 3
+//   10
+//
+// Block 1 (size=10): src=[0,10)
+//   tgt_cursor=0 → forward tgt_end = 100-0 = 100, tgt_start = 100-10 = 90
+//   → block maps src[0,10) → fwd-tgt[90,100)
+//
+// After gap (dt=5, dq=3): src_cursor=15, tgt_cursor=13
+//
+// Block 2 (size=10): src=[15,25)
+//   tgt_cursor=13 → forward tgt_end = 100-13 = 87, tgt_start = 87-10 = 77
+//   → block maps src[15,25) → fwd-tgt[77,87)
+//
+// Variant at src_pos0=17 (1-based pos=18), offset=2 from block2.src_start=15:
+//   lifted fwd pos0 = tgt_end - offset - ref_len = 87 - 2 - 1 = 84  → 1-based 85
+//
+// We omit real FASTA files so REF validation is skipped (Reference::open fails
+// on non-existent paths, returning None via .ok()).
+
+#[test]
+fn multi_block_neg_strand_tgt_cursor_advances_correctly() {
+    let dir = scratch_dir("neg-multiblock");
+
+    // chain: two 10-bp blocks, gap (dt=5, dq=3) between them, '-' strand target
+    let chain = "chain 1000 chr1 50 + 0 25 chr2 100 - 0 23 1\n10 5 3\n10\n";
+    let chain_path = write_file(&dir, "x.chain", chain.as_bytes());
+
+    // Build a minimal target FASTA with chr2 (100 bp) so REF validation can run.
+    // Block 2 maps src[15,25) → fwd-tgt[77,87). Variant at src_pos0=17 (offset=2)
+    // lifts to tgt_pos0=84. REF on source = rev_comp(tgt[84]).
+    //
+    // We set tgt_seq[84] = 'C' and pick source REF = rev_comp("C") = "G".
+    let mut tgt_seq = cycle_acgt(120);
+    tgt_seq[84] = b'C';
+    let src_seq = cycle_acgt(50);
+    let src_fa = write_mini_fasta(&dir, "src.fa", &[("chr1", &src_seq)]);
+    let tgt_fa = write_mini_fasta(&dir, "tgt.fa", &[("chr2", &tgt_seq)]);
+
+    // src pos 18 (1-based) = pos0 17, in block2 (src_start=15), offset=2.
+    // Source REF = "G" (will be rev_comp'd to "C" to match tgt[84]).
+    let input = make_vcf(&[("chr1", 18, "G", "A")], &[("chr1", 50)]);
+    let (out, stats) = run_core(
+        &input,
+        &chain_path,
+        &src_fa,
+        &tgt_fa,
+        LiftoverOptions::default(),
+    );
+
+    assert_eq!(stats.input_records, 1, "one record in");
+    assert_eq!(stats.output_records, 1, "should be lifted (not rejected)");
+    assert_eq!(stats.swapped_alleles, 1, "alleles should be swapped for '-' strand");
+
+    let recs = parse_vcf_records(&out);
+    assert_eq!(recs.len(), 1);
+    assert_eq!(recs[0].chrom, "chr2");
+    // tgt_end - offset - ref_len + 1 (1-based) = 87 - 2 - 1 + 1 = 85
+    assert_eq!(recs[0].pos, 85, "second block maps to lower forward-strand position");
+    assert_eq!(recs[0].ref_allele, "C", "rev_comp(G) = C");
+    assert_eq!(recs[0].alt_alleles, vec!["T".to_string()], "rev_comp(A) = T");
+}

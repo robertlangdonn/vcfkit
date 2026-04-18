@@ -223,7 +223,7 @@ fn parse_chain<R: BufRead>(reader: R) -> Result<Vec<ChainBlock>, VcfkitError> {
             continue;
         }
 
-        if let Some(rest) = line.strip_prefix("chain") {
+        if let Some(rest) = line.strip_prefix("chain ") {
             // Parse the chain header: "chain <score> <srcChrom> <srcSize> <srcStrand>
             // <srcStart> <srcEnd> <tgtChrom> <tgtSize> <tgtStrand> <tgtStart>
             // <tgtEnd> <id>".
@@ -237,6 +237,12 @@ fn parse_chain<R: BufRead>(reader: R) -> Result<Vec<ChainBlock>, VcfkitError> {
             let src_chrom = fields[1].to_string();
             let src_size: u64 = parse_u64(fields[2], "srcSize", lineno)?;
             let src_strand = single_char(fields[3], "srcStrand", lineno)?;
+            if src_strand != '+' {
+                return Err(VcfkitError::Other(format!(
+                    "unsupported src_strand '{}' in chain file (only '+' is supported)",
+                    src_strand
+                )));
+            }
             let src_start: u64 = parse_u64(fields[4], "srcStart", lineno)?;
             let src_end: u64 = parse_u64(fields[5], "srcEnd", lineno)?;
             let tgt_chrom = fields[6].to_string();
@@ -328,10 +334,6 @@ fn make_block(hdr: &ChainHeader, size: u64) -> ChainBlock {
     } else {
         (hdr.tgt_cursor, hdr.tgt_cursor + size)
     };
-
-    // Validate src_strand is '+' — chain files with `-` srcStrand are exotic
-    // and not supported here. UCSC's hgLiftOver always emits srcStrand '+'.
-    let _ = hdr.src_strand;
 
     let _ = hdr.src_start;
     let _ = hdr.src_end;
@@ -561,10 +563,6 @@ fn lift_record(
     *lifted.reference_bases_mut() = new_ref.clone();
     *lifted.alternate_bases_mut() = AlternateBases::from(new_alts);
 
-    if swapped {
-        stats.swapped_alleles += 1;
-    }
-
     // INFO/SRC_* tags.
     if options.write_src_coords {
         let info = lifted.info_mut();
@@ -607,6 +605,11 @@ fn lift_record(
                 }
             }
         }
+    }
+
+    // Only count swapped_alleles for records that make it to output.
+    if swapped {
+        stats.swapped_alleles += 1;
     }
 
     Ok(LiftResult::Ok(Box::new(lifted)))
