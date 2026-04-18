@@ -1,0 +1,23 @@
+# Build artifacts
+target/
+
+# Cargo lock for libraries (keep for binaries)
+# Cargo.lock  # keep this for the binary crate
+
+# IDE
+.idea/
+.vscode/
+*.iml
+
+# macOS
+.DS_Store
+
+# Benchmarks output
+benches/e2e/report.md
+
+# Git worktrees
+.worktrees/
+
+# AI assistant context (not for the repo)
+CLAUDE.md
+_docs/
