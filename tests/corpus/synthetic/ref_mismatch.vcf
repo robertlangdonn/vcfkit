@@ -1,0 +1,11 @@
+##fileformat=VCFv4.2
+##FILTER=<ID=PASS,Description="All filters passed">
+##contig=<ID=chr1,length=248956422>
+##contig=<ID=chr2,length=242193529>
+##INFO=<ID=ACTUAL_REF,Number=1,Type=String,Description="Actual reference base at this position">
+##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">
+##FORMAT=<ID=DP,Number=1,Type=Integer,Description="Read Depth">
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT	SAMPLE1
+chr1	100	rs001	G	T	50	PASS	ACTUAL_REF=A	GT:DP	0/1:30
+chr1	250	rs002	T	C	60	PASS	ACTUAL_REF=C	GT:DP	0/1:40
+chr2	300	rs003	C	A	45	PASS	ACTUAL_REF=G	GT:DP	1/1:35

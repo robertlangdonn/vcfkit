@@ -1,0 +1,17 @@
+##fileformat=VCFv4.2
+##FILTER=<ID=PASS,Description="All filters passed">
+##reference=hg19
+##contig=<ID=chr1,length=249250621,assembly=hg19>
+##contig=<ID=chr17,length=81195210,assembly=hg19>
+##contig=<ID=chrX,length=155270560,assembly=hg19>
+##INFO=<ID=AF,Number=A,Type=Float,Description="Allele Frequency">
+##INFO=<ID=DP,Number=1,Type=Integer,Description="Total Read Depth">
+##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">
+##FORMAT=<ID=DP,Number=1,Type=Integer,Description="Read Depth">
+##FORMAT=<ID=GQ,Number=1,Type=Integer,Description="Genotype Quality">
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT	SAMPLE1
+chr1	925952	rs3131972	A	G	85	PASS	AF=0.45;DP=100	GT:DP:GQ	0/1:100:80
+chr1	1158631	rs2887286	T	C	90	PASS	AF=0.30;DP=120	GT:DP:GQ	0/1:120:85
+chr1	3638522	rs9442372	A	G	75	PASS	AF=0.50;DP=90	GT:DP:GQ	1/1:90:70
+chr17	41244936	rs28897672	A	G	99	PASS	AF=0.01;DP=300	GT:DP:GQ	0/1:300:95
+chrX	2699625	rs5945326	C	T	70	PASS	AF=0.40;DP=80	GT:DP:GQ	0/1:80:65

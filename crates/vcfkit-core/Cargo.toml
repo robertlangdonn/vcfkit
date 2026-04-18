@@ -1,0 +1,35 @@
+[package]
+name = "vcfkit-core"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+noodles = { workspace = true }
+anyhow = { workspace = true }
+thiserror = { workspace = true }
+tracing = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+nom = { workspace = true }
+
+[dev-dependencies]
+criterion = { workspace = true }
+
+[[bench]]
+name = "normalize_bench"
+harness = false
+path = "../../benches/micro/normalize_bench.rs"
+
+[[bench]]
+name = "liftover_bench"
+harness = false
+path = "../../benches/micro/liftover_bench.rs"
+
+[[bench]]
+name = "filter_bench"
+harness = false
+path = "../../benches/micro/filter_bench.rs"

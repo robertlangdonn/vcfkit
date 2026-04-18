@@ -1,0 +1,13 @@
+##fileformat=VCFv4.2
+##FILTER=<ID=PASS,Description="All filters passed">
+##contig=<ID=chr1,length=120>
+##INFO=<ID=NORM_POS,Number=1,Type=Integer,Description="Expected left-aligned POS after normalization">
+##INFO=<ID=NORM_REF,Number=1,Type=String,Description="Expected REF after normalization">
+##INFO=<ID=NORM_ALT,Number=1,Type=String,Description="Expected ALT after normalization">
+##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT	SAMPLE1
+chr1	18	.	T	TACGT	50	PASS	NORM_POS=10;NORM_REF=A;NORM_ALT=AACGT	GT	0/1
+chr1	36	.	T	TACGT	50	PASS	NORM_POS=28;NORM_REF=G;NORM_ALT=GACGT	GT	0/1
+chr1	14	.	TACGT	T	55	PASS	NORM_POS=10;NORM_REF=AACGT;NORM_ALT=A	GT	0/1
+chr1	32	.	TACGT	T	48	PASS	NORM_POS=28;NORM_REF=GACGT;NORM_ALT=G	GT	0/1
+chr1	36	.	T	TACGTACGT	60	PASS	NORM_POS=28;NORM_REF=G;NORM_ALT=GACGTACGT	GT	0/1
