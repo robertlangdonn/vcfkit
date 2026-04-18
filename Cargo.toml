@@ -9,6 +9,9 @@ rust-version = "1.75"
 authors = ["Prasad Khake"]
 license = "MIT"
 repository = "https://github.com/robertlangdonn/vcfkit"
+homepage = "https://github.com/robertlangdonn/vcfkit"
+keywords = ["bioinformatics", "vcf", "genomics", "variant"]
+categories = ["command-line-utilities", "science"]
 
 [workspace.dependencies]
 noodles = { version = "0.109", features = ["core", "vcf", "bcf", "bgzf", "fasta", "csi", "tabix"] }

@@ -6,6 +6,11 @@ rust-version.workspace = true
 authors.workspace = true
 license.workspace = true
 repository.workspace = true
+homepage.workspace = true
+keywords.workspace = true
+categories.workspace = true
+description = "Fast VCF toolkit: normalize, liftover, filter — single static binary, no htslib"
+readme = "../../README.md"
 
 [[bin]]
 name = "vcfkit"

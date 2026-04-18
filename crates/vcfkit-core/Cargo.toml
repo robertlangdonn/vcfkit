@@ -6,6 +6,11 @@ rust-version.workspace = true
 authors.workspace = true
 license.workspace = true
 repository.workspace = true
+homepage.workspace = true
+keywords.workspace = true
+categories.workspace = true
+description = "Core library for vcfkit: VCF normalize, liftover, and filter operations"
+readme = "../../README.md"
 
 [dependencies]
 noodles = { workspace = true }
