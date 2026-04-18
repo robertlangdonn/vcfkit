@@ -78,7 +78,7 @@ cat input.vcf \
 
 ## Performance
 
-Target: ≥1.5× faster than bcftools on 1M-variant inputs. See [BENCHMARKS.md](BENCHMARKS.md).
+Current throughput on plain VCF is ~2.6× slower than bcftools (noodles eager parsing vs htslib lazy parsing). Lazy record reading is on the roadmap for Phase 2. Correctness is validated against bcftools output. See [BENCHMARKS.md](BENCHMARKS.md).
 
 ## Building from source
 

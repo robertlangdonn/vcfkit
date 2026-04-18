@@ -238,6 +238,9 @@ enum Scalar {
     Integer(i64),
     Float(f64),
     String(String),
+    /// Multiple numeric values from an INFO array field (Number=A/R/G/etc).
+    /// Numeric comparisons use "any element satisfies" semantics (bcftools default).
+    FloatArray(Vec<f64>),
 }
 
 fn eval_expr(e: &Expr, rec: &RecordBuf, hdr: &vcf::Header) -> Result<bool, VcfkitError> {
@@ -331,34 +334,46 @@ fn info_value_to_scalar(
             }
             Scalar::String(s.clone())
         }
-        InfoValue::Array(arr) => info_array_first(arr, declared_type),
+        InfoValue::Array(arr) => info_array_all(arr, declared_type),
     }
 }
 
-fn info_array_first(
+/// For multi-value INFO arrays, returns a `FloatArray` so that numeric
+/// comparisons use "any element satisfies" semantics (matching bcftools).
+/// String arrays are joined for `~` matching.
+fn info_array_all(
     arr: &InfoArray,
     declared_type: Option<noodles::vcf::header::record::value::map::info::Type>,
 ) -> Scalar {
     match arr {
-        InfoArray::Integer(v) => v
-            .first()
-            .and_then(|o| o.as_ref())
-            .map(|n| Scalar::Integer(*n as i64))
-            .unwrap_or(Scalar::Missing),
-        InfoArray::Float(v) => v
-            .first()
-            .and_then(|o| o.as_ref())
-            .map(|n| Scalar::Float(*n as f64))
-            .unwrap_or(Scalar::Missing),
+        InfoArray::Integer(v) => {
+            let vals: Vec<f64> = v
+                .iter()
+                .filter_map(|o| o.as_ref().map(|n| *n as f64))
+                .collect();
+            if vals.is_empty() {
+                Scalar::Missing
+            } else {
+                Scalar::FloatArray(vals)
+            }
+        }
+        InfoArray::Float(v) => {
+            let vals: Vec<f64> = v
+                .iter()
+                .filter_map(|o| o.as_ref().map(|n| *n as f64))
+                .collect();
+            if vals.is_empty() {
+                Scalar::Missing
+            } else {
+                Scalar::FloatArray(vals)
+            }
+        }
         InfoArray::Character(v) => v
             .first()
             .and_then(|o| o.as_ref())
             .map(|c| Scalar::String(c.to_string()))
             .unwrap_or(Scalar::Missing),
         InfoArray::String(v) => {
-            // For numeric coercion, use the first element only.
-            // For string operations (including `~` contains), join all
-            // elements with a comma so that any element can match.
             let elements: Vec<&str> = v
                 .iter()
                 .filter_map(|o| o.as_ref().map(|s| s.as_str()))
@@ -366,18 +381,24 @@ fn info_array_first(
             if elements.is_empty() {
                 return Scalar::Missing;
             }
-            // Try numeric coercion from the first element.
+            // Try numeric coercion — if all elements parse as floats, use FloatArray.
             if let Some(t) = declared_type {
                 use noodles::vcf::header::record::value::map::info::Type as InfoType;
                 match t {
                     InfoType::Integer => {
-                        if let Ok(n) = elements[0].parse::<i64>() {
-                            return Scalar::Integer(n);
+                        let nums: Option<Vec<f64>> = elements
+                            .iter()
+                            .map(|s| s.parse::<i64>().ok().map(|n| n as f64))
+                            .collect();
+                        if let Some(vals) = nums {
+                            return Scalar::FloatArray(vals);
                         }
                     }
                     InfoType::Float => {
-                        if let Ok(x) = elements[0].parse::<f64>() {
-                            return Scalar::Float(x);
+                        let nums: Option<Vec<f64>> =
+                            elements.iter().map(|s| s.parse::<f64>().ok()).collect();
+                        if let Some(vals) = nums {
+                            return Scalar::FloatArray(vals);
                         }
                     }
                     _ => {}
@@ -462,10 +483,33 @@ fn format_genotype(g: &Genotype) -> String {
 }
 
 /// Compare two scalars. A missing operand always evaluates to `false`.
+/// For `FloatArray` (multi-value INFO fields), returns true if ANY element
+/// satisfies the condition — matching bcftools default semantics.
 fn compare(lhs: &Scalar, op: CmpOp, rhs: &Scalar) -> Result<bool, VcfkitError> {
     // Any comparison with a missing operand is false.
     if matches!(lhs, Scalar::Missing) || matches!(rhs, Scalar::Missing) {
         return Ok(false);
+    }
+
+    // FloatArray: any-element semantics for numeric ops, joined string for ~.
+    if let Scalar::FloatArray(vals) = lhs {
+        return match op {
+            CmpOp::Contains | CmpOp::NotContains => {
+                let joined = vals
+                    .iter()
+                    .map(|v| v.to_string())
+                    .collect::<Vec<_>>()
+                    .join(",");
+                compare(&Scalar::String(joined), op, rhs)
+            }
+            _ => {
+                if let Some(b) = to_f64(rhs) {
+                    Ok(vals.iter().any(|a| cmp_f64(*a, op, b)))
+                } else {
+                    Ok(false)
+                }
+            }
+        };
     }
 
     match op {
@@ -481,20 +525,7 @@ fn compare(lhs: &Scalar, op: CmpOp, rhs: &Scalar) -> Result<bool, VcfkitError> {
             // Numeric vs numeric (or either side numeric) -> numeric compare.
             // String vs string -> string compare.
             if let (Some(a), Some(b)) = (to_f64(lhs), to_f64(rhs)) {
-                Ok(match op {
-                    CmpOp::Lt => a < b,
-                    CmpOp::Le => a <= b,
-                    CmpOp::Gt => a > b,
-                    CmpOp::Ge => a >= b,
-                    CmpOp::Eq => a == b,
-                    CmpOp::Ne => a != b,
-                    CmpOp::Contains | CmpOp::NotContains => {
-                        // These are handled before this branch in the caller
-                        return Err(VcfkitError::Other(
-                            "internal: contains op in numeric comparison".to_string(),
-                        ));
-                    }
-                })
+                Ok(cmp_f64(a, op, b))
             } else {
                 let sa = scalar_to_string(lhs);
                 let sb = scalar_to_string(rhs);
@@ -506,7 +537,6 @@ fn compare(lhs: &Scalar, op: CmpOp, rhs: &Scalar) -> Result<bool, VcfkitError> {
                     CmpOp::Eq => sa == sb,
                     CmpOp::Ne => sa != sb,
                     CmpOp::Contains | CmpOp::NotContains => {
-                        // These are handled before this branch in the caller
                         return Err(VcfkitError::Other(
                             "internal: contains op in numeric comparison".to_string(),
                         ));
@@ -517,12 +547,24 @@ fn compare(lhs: &Scalar, op: CmpOp, rhs: &Scalar) -> Result<bool, VcfkitError> {
     }
 }
 
+fn cmp_f64(a: f64, op: CmpOp, b: f64) -> bool {
+    match op {
+        CmpOp::Lt => a < b,
+        CmpOp::Le => a <= b,
+        CmpOp::Gt => a > b,
+        CmpOp::Ge => a >= b,
+        CmpOp::Eq => a == b,
+        CmpOp::Ne => a != b,
+        CmpOp::Contains | CmpOp::NotContains => false,
+    }
+}
+
 fn to_f64(s: &Scalar) -> Option<f64> {
     match s {
         Scalar::Integer(n) => Some(*n as f64),
         Scalar::Float(x) => Some(*x),
         Scalar::String(s) => s.parse().ok(),
-        Scalar::Missing => None,
+        Scalar::Missing | Scalar::FloatArray(_) => None,
     }
 }
 
@@ -531,6 +573,11 @@ fn scalar_to_string(s: &Scalar) -> String {
         Scalar::Integer(n) => n.to_string(),
         Scalar::Float(x) => x.to_string(),
         Scalar::String(s) => s.clone(),
+        Scalar::FloatArray(v) => v
+            .iter()
+            .map(|x| x.to_string())
+            .collect::<Vec<_>>()
+            .join(","),
         Scalar::Missing => String::new(),
     }
 }

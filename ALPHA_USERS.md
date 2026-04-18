@@ -57,7 +57,7 @@ cat input.vcf | vcfkit normalize -f ref.fa | vcfkit filter -e "QUAL > 30" > outp
 - BCF output not supported yet — pipe through `bcftools view -O b` to convert
 - No bgzip output (`.vcf.gz`) yet
 - LLM natural-language filter coming in a later phase (`vcfkit filter -e "rare coding variants on chr17"`)
-- Performance benchmarks vs bcftools not yet run on real data — claims are targets, not measured yet
+- Currently ~2.6× slower than bcftools on plain VCF filter (noodles eager parsing vs htslib lazy). Lazy parsing is planned for Phase 2.
 
 ## How to give feedback
 
