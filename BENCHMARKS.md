@@ -30,7 +30,7 @@ Results are written to `benches/e2e/report.md`.
 
 ## E2E Results (1000 Genomes chr22, 1.1M variants, macOS aarch64)
 
-Measured 2026-04-18 with bcftools 1.23.1 and hyperfine 1.20.0.
+Measured 2026-04-18 with bcftools 1.23.1 and hyperfine 1.20.0.  
 Input: `ALL.chr22.phase3_shapeit2_mvncall_integrated_v5b.20130502.genotypes.vcf.gz`
 extracted to plain VCF (sites-only, 149 MB, 1,103,547 records).
 
@@ -48,7 +48,23 @@ extracted to plain VCF (sites-only, 149 MB, 1,103,547 records).
 | `vcfkit filter -e "FILTER == 'PASS'"` | **462 ms** | **3.5× faster** |
 | `bcftools view -f PASS` | 1,610 ms | — |
 
-## How the fast path works
+### normalize (pending — v0.1.3 target)
+
+`vcfkit normalize --fast` was added in the post-v0.1.2 work. Benchmark numbers for
+normalize vs `bcftools norm` on chr22 have not yet been collected.
+
+Expected: ~4× speedup for SNP-heavy VCFs (chr22 is ~80% SNPs), similar to filter,
+since both use the same raw-line + lazy-parse approach.
+
+### liftover (pending)
+
+Liftover benchmarks require a real hg19→hg38 chain file and a chr22 hg19 VCF.
+The chain lookup is O(log n) by construction (binary search into a sorted `Vec<ChainBlock>`
+per source contig). End-to-end timing vs `bcftools +liftover` will be added in v0.1.3.
+
+## How the fast paths work
+
+### filter fast path (active, 4× measured speedup)
 
 The filter hot loop bypasses noodles record parsing entirely:
 
@@ -57,9 +73,18 @@ The filter hot loop bypasses noodles record parsing entirely:
 3. **Pass-through writes** — matching records are written as raw bytes without re-serialization through noodles.
 4. **INFO metadata** from the header (field types, Number=A/R/G) is extracted once before the loop and reused.
 
-bcftools (htslib) parses VCF lazily in C with field offsets. vcfkit's fast path does the same in Rust.
+### normalize fast path (active via `--fast`, benchmarks pending)
 
-Correctness is validated: both tools produce identical variant counts on the same input (910,425 of 1,103,547 variants with AF < 0.01 on chr22).
+Same approach as filter for biallelic SNPs/MNPs (≈80% of typical VCFs):
+
+1. Detect SNP/MNP from raw tab-split columns — no noodles parse.
+2. Optional REF check: single byte lookup into cached contig sequence.
+3. Write raw bytes unchanged.
+4. Multi-allelic records and indels (when left-align is enabled) automatically fall back to the full noodles pipeline.
+
+Correctness is validated by parity tests: fast mode and noodles mode produce identical output on all corpus VCFs.
+
+bcftools (htslib) parses VCF lazily in C with field offsets. vcfkit's fast paths do the same in Rust.
 
 ---
 
