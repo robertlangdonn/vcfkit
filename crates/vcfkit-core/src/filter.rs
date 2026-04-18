@@ -126,6 +126,23 @@ pub fn filter<R: BufRead, W: Write>(
     expression: FilterExpression,
     options: FilterOptions,
 ) -> Result<FilterStats, VcfkitError> {
+    filter_with_progress(reader, writer, expression, options, |_| {})
+}
+
+/// Variant of [`filter`] that notifies `on_record` after each input record is
+/// read. Used by the CLI to drive a progress bar.
+pub fn filter_with_progress<R, W, F>(
+    reader: R,
+    writer: W,
+    expression: FilterExpression,
+    options: FilterOptions,
+    mut on_record: F,
+) -> Result<FilterStats, VcfkitError>
+where
+    R: BufRead,
+    W: Write,
+    F: FnMut(u64),
+{
     let mut vcf_reader = vcf::io::Reader::new(reader);
     let header = vcf_reader
         .read_header()
@@ -148,6 +165,7 @@ pub fn filter<R: BufRead, W: Write>(
             break;
         }
         stats.input_records += 1;
+        on_record(stats.input_records as u64);
 
         let matches = expression.evaluate(&record, &header)?;
         let keep = if options.invert { !matches } else { matches };

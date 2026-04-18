@@ -10,9 +10,10 @@ use anyhow::Context;
 
 use vcfkit_core::{
     io::OutputFormat,
-    normalize::{NormalizeOptions, RefCheck, normalize},
+    normalize::{NormalizeOptions, RefCheck, normalize_with_progress},
 };
 
+use crate::output::ProgressReporter;
 use crate::{CheckRefMode, NormalizeArgs};
 
 /// Run the normalize subcommand.
@@ -33,45 +34,59 @@ pub fn run(args: &NormalizeArgs, quiet: bool) -> anyhow::Result<()> {
             .unwrap_or(OutputFormat::Vcf),
     };
 
+    // Validate reference up front so the user sees the clearest possible
+    // error before we touch the input stream.
+    if !args.reference.exists() {
+        return Err(anyhow::anyhow!(
+            "failed to load reference FASTA '{}': file not found",
+            args.reference.display()
+        ));
+    }
+
+    let reporter = ProgressReporter::new(None, quiet);
+    let on_record = |_n: u64| reporter.inc();
+
     // Open input (path or stdin).
     let stats = match (args.input.as_deref(), args.output.as_deref()) {
         (Some(in_path), Some(out_path)) => {
-            let reader = BufReader::new(
-                File::open(in_path)
-                    .with_context(|| format!("opening input {}", in_path.display()))?,
-            );
-            let writer = BufWriter::new(
-                File::create(out_path)
-                    .with_context(|| format!("creating output {}", out_path.display()))?,
-            );
-            normalize(reader, writer, &args.reference, options)?
+            let reader = BufReader::new(File::open(in_path).with_context(|| {
+                format!("failed to open input file '{}'", in_path.display())
+            })?);
+            let writer = BufWriter::new(File::create(out_path).with_context(|| {
+                format!("failed to create output file '{}'", out_path.display())
+            })?);
+            normalize_with_progress(reader, writer, &args.reference, options, on_record)
+                .with_context(|| "normalize failed")?
         }
         (Some(in_path), None) => {
-            let reader = BufReader::new(
-                File::open(in_path)
-                    .with_context(|| format!("opening input {}", in_path.display()))?,
-            );
+            let reader = BufReader::new(File::open(in_path).with_context(|| {
+                format!("failed to open input file '{}'", in_path.display())
+            })?);
             let stdout = io::stdout();
             let writer = BufWriter::new(stdout.lock());
-            normalize(reader, writer, &args.reference, options)?
+            normalize_with_progress(reader, writer, &args.reference, options, on_record)
+                .with_context(|| "normalize failed")?
         }
         (None, Some(out_path)) => {
             let stdin = io::stdin();
             let reader = BufReader::new(stdin.lock());
-            let writer = BufWriter::new(
-                File::create(out_path)
-                    .with_context(|| format!("creating output {}", out_path.display()))?,
-            );
-            normalize(reader, writer, &args.reference, options)?
+            let writer = BufWriter::new(File::create(out_path).with_context(|| {
+                format!("failed to create output file '{}'", out_path.display())
+            })?);
+            normalize_with_progress(reader, writer, &args.reference, options, on_record)
+                .with_context(|| "normalize failed")?
         }
         (None, None) => {
             let stdin = io::stdin();
             let stdout = io::stdout();
             let reader = BufReader::new(stdin.lock());
             let writer = BufWriter::new(stdout.lock());
-            normalize(reader, writer, &args.reference, options)?
+            normalize_with_progress(reader, writer, &args.reference, options, on_record)
+                .with_context(|| "normalize failed")?
         }
     };
+
+    reporter.finish("normalize complete");
 
     if !quiet {
         eprintln!(

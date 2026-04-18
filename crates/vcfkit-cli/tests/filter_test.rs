@@ -310,7 +310,7 @@ fn multiline_info_compound_filter() {
 }
 
 /// 16. `~` on a multi-valued INFO array: any element containing the substring
-/// should match.
+///     should match.
 ///
 /// The inline VCF has `CSQ=intron_variant,missense_variant` for one record and
 /// `CSQ=synonymous_variant` for another. Filtering with `INFO/CSQ ~ 'missense'`

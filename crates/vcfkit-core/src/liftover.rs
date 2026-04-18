@@ -391,6 +391,33 @@ pub fn liftover<R: BufRead, W: Write>(
     target_ref_path: &Path,
     options: LiftoverOptions,
 ) -> Result<LiftoverStats, VcfkitError> {
+    liftover_with_progress(
+        reader,
+        writer,
+        chain_path,
+        source_ref_path,
+        target_ref_path,
+        options,
+        |_| {},
+    )
+}
+
+/// Variant of [`liftover`] that notifies `on_record` after each input record
+/// is read. Used by the CLI to drive a progress bar.
+pub fn liftover_with_progress<R, W, F>(
+    reader: R,
+    writer: W,
+    chain_path: &Path,
+    source_ref_path: &Path,
+    target_ref_path: &Path,
+    options: LiftoverOptions,
+    mut on_record: F,
+) -> Result<LiftoverStats, VcfkitError>
+where
+    R: BufRead,
+    W: Write,
+    F: FnMut(u64),
+{
     // ── open inputs ──────────────────────────────────────────────────────────
     let chain = ChainIndex::from_path(chain_path)?;
 
@@ -458,6 +485,7 @@ pub fn liftover<R: BufRead, W: Write>(
             break;
         }
         stats.input_records += 1;
+        on_record(stats.input_records as u64);
 
         match lift_record(&record, &chain, tgt_fa.as_mut(), &options, &mut stats)? {
             LiftResult::Ok(lifted) => {

@@ -1,12 +1,16 @@
 use std::io;
 use std::path::PathBuf;
+use std::process::ExitCode;
+use std::time::Instant;
 
 use anyhow::Result;
 use clap::{CommandFactory, Parser, Subcommand, ValueEnum};
-use clap_complete::{generate, Shell};
+use clap_complete::{Shell, generate};
 use tracing_subscriber::{EnvFilter, fmt};
 
 mod commands;
+mod output;
+mod telemetry;
 
 // ---------------------------------------------------------------------------
 // Top-level CLI
@@ -201,7 +205,7 @@ pub struct CompletionsArgs {
 // Entry point
 // ---------------------------------------------------------------------------
 
-fn main() -> Result<()> {
+fn main() -> ExitCode {
     let cli = Cli::parse();
 
     // Set up tracing based on --verbose count (--quiet forces warn level)
@@ -223,22 +227,52 @@ fn main() -> Result<()> {
         .with_writer(io::stderr)
         .init();
 
-    match cli.command {
-        Commands::Normalize(args) => {
-            commands::normalize::run(&args, cli.quiet)?;
+    // Resolve telemetry setting once, up front. We only prompt for actual
+    // pipeline commands (not `completions` — that's usually automated).
+    let telemetry_enabled = if cli.no_telemetry {
+        false
+    } else {
+        match &cli.command {
+            Commands::Completions(_) => false,
+            _ => {
+                let mut cfg = telemetry::TelemetryConfig::load();
+                cfg.ensure_prompted()
+            }
         }
-        Commands::Liftover(args) => {
-            commands::liftover::run(&args, cli.quiet)?;
-        }
-        Commands::Filter(args) => {
-            commands::filter::run(&args, cli.quiet)?;
-        }
+    };
+
+    let command_name = match &cli.command {
+        Commands::Normalize(_) => "normalize",
+        Commands::Liftover(_) => "liftover",
+        Commands::Filter(_) => "filter",
+        Commands::Completions(_) => "completions",
+    };
+
+    let started = Instant::now();
+    let result: Result<()> = match cli.command {
+        Commands::Normalize(args) => commands::normalize::run(&args, cli.quiet),
+        Commands::Liftover(args) => commands::liftover::run(&args, cli.quiet),
+        Commands::Filter(args) => commands::filter::run(&args, cli.quiet),
         Commands::Completions(args) => {
             let mut cmd = Cli::command();
             let name = cmd.get_name().to_string();
             generate(args.shell, &mut cmd, name, &mut io::stdout());
+            Ok(())
         }
+    };
+
+    let success = result.is_ok();
+    let duration = started.elapsed();
+
+    if telemetry_enabled {
+        telemetry::send_event(command_name, duration, success);
     }
 
-    Ok(())
+    match result {
+        Ok(()) => ExitCode::SUCCESS,
+        Err(e) => {
+            eprintln!("Error: {:#}", e);
+            ExitCode::FAILURE
+        }
+    }
 }

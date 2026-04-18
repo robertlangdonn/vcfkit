@@ -105,6 +105,24 @@ pub fn normalize<R: BufRead, W: Write>(
     reference_path: &Path,
     options: NormalizeOptions,
 ) -> Result<NormalizeStats, VcfkitError> {
+    normalize_with_progress(reader, writer, reference_path, options, |_| {})
+}
+
+/// Variant of [`normalize`] that invokes `on_record` after each *input*
+/// record is consumed, passing the running count. Used by the CLI to drive a
+/// progress bar; bench/test code should prefer [`normalize`].
+pub fn normalize_with_progress<R, W, F>(
+    reader: R,
+    writer: W,
+    reference_path: &Path,
+    options: NormalizeOptions,
+    mut on_record: F,
+) -> Result<NormalizeStats, VcfkitError>
+where
+    R: BufRead,
+    W: Write,
+    F: FnMut(u64),
+{
     let mut vcf_reader = vcf::io::Reader::new(reader);
     let header = vcf_reader
         .read_header()
@@ -132,6 +150,7 @@ pub fn normalize<R: BufRead, W: Write>(
             break;
         }
         stats.input_records += 1;
+        on_record(stats.input_records as u64);
 
         let processed = process_record(&record, &header, fasta.as_mut(), &options, &mut stats)?;
 
