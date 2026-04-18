@@ -76,7 +76,7 @@ pub fn run(args: &LiftoverArgs, quiet: bool) -> anyhow::Result<()> {
             .unwrap_or(OutputFormat::Vcf),
     };
 
-    let reporter = ProgressReporter::new(None, quiet);
+    let reporter = ProgressReporter::new_with_flags(None, quiet, args.no_progress);
     let on_record = |_n: u64| reporter.inc();
 
     let stats = match (args.input.as_deref(), args.output.as_deref()) {
