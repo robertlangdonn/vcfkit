@@ -62,8 +62,8 @@ pub struct LiftoverOptions {
     /// If true and the chain block strand is `-`, reverse-complement REF and
     /// ALT alleles. If false, such records are rejected as unmapped.
     pub fix_swapped_ref: bool,
-    /// Output format for the main writer. Currently only [`OutputFormat::Vcf`]
-    /// is honored; BCF output is reserved for a future task.
+    /// Output format for the main writer. Only [`OutputFormat::Vcf`] is
+    /// supported. For BCF output, pipe through `bcftools view -O b`.
     pub output_format: crate::io::OutputFormat,
 }
 

@@ -1,8 +1,10 @@
-//! VCF/BCF I/O helpers: format detection and reader/writer construction.
+//! VCF I/O helpers: format detection and reader/writer construction.
 //!
-//! This module is the single entry point for opening VCF and BCF files
-//! (or stdin/stdout) regardless of compression. All other vcfkit-core
-//! modules should use these helpers rather than calling noodles directly.
+//! This module is the single entry point for opening VCF files (or
+//! stdin/stdout) regardless of compression. BCF input is supported for
+//! reading; BCF output is not — pipe through `bcftools view -O b` instead.
+//! All other vcfkit-core modules should use these helpers rather than calling
+//! noodles directly.
 
 use std::{
     io::{self, BufRead, BufReader, Read, Write},
@@ -14,35 +16,34 @@ use noodles::{bcf, bgzf, vcf};
 // ── OutputFormat ─────────────────────────────────────────────────────────────
 
 /// The output container format for VCF-family data.
+///
+/// Only plain-text VCF (with optional bgzf compression) is supported for
+/// output in v1. For BCF output, pipe through `bcftools view -O b`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, serde::Serialize, serde::Deserialize)]
 pub enum OutputFormat {
     /// Plain-text VCF (optionally bgzf-compressed when the path ends in `.gz`/`.bgz`).
     #[default]
     Vcf,
-    /// Binary BCF (always bgzf-compressed per the BCF spec).
-    Bcf,
 }
 
 // ── Path-based helpers ────────────────────────────────────────────────────────
 
 /// Detect the output format from a file-path extension.
 ///
-/// * `.bcf` → [`OutputFormat::Bcf`]
-/// * anything else → [`OutputFormat::Vcf`]
-pub fn format_from_path(path: &Path) -> OutputFormat {
-    match path.extension().and_then(|e| e.to_str()) {
-        Some("bcf") => OutputFormat::Bcf,
-        _ => OutputFormat::Vcf,
-    }
+/// Only [`OutputFormat::Vcf`] is returned; `.bcf` paths are treated as VCF
+/// for forward-compatibility. For BCF output, pipe through
+/// `bcftools view -O b`.
+pub fn format_from_path(_path: &Path) -> OutputFormat {
+    OutputFormat::Vcf
 }
 
 /// Returns `true` when the path suggests the file is compressed.
 ///
-/// Compressed extensions: `.gz`, `.bgz`, `.bcf` (BCF is always bgzf-compressed).
+/// Compressed extensions: `.gz`, `.bgz`.
 pub fn is_compressed_path(path: &Path) -> bool {
     matches!(
         path.extension().and_then(|e| e.to_str()),
-        Some("gz" | "bgz" | "bcf")
+        Some("gz" | "bgz")
     )
 }
 
@@ -57,21 +58,16 @@ const BCF_MAGIC: [u8; 4] = *b"BCF\x02";
 /// The four bytes are consumed from `reader`; callers that need them back
 /// should wrap the reader in a [`std::io::Chain`] with a `Cursor` over the
 /// peeked bytes.
-pub fn detect_format_from_magic(reader: &mut impl Read) -> io::Result<OutputFormat> {
+pub fn detect_format_from_magic(reader: &mut impl Read) -> io::Result<bool> {
     let mut magic = [0u8; 4];
     match reader.read_exact(&mut magic) {
         Ok(()) => {}
         Err(e) if e.kind() == std::io::ErrorKind::UnexpectedEof => {
-            // File is shorter than 4 bytes — treat as VCF.
-            return Ok(OutputFormat::Vcf);
+            return Ok(false);
         }
         Err(e) => return Err(e),
     }
-    if magic == BCF_MAGIC {
-        Ok(OutputFormat::Bcf)
-    } else {
-        Ok(OutputFormat::Vcf)
-    }
+    Ok(magic == BCF_MAGIC)
 }
 
 // ── VcfReader enum ────────────────────────────────────────────────────────────
@@ -82,7 +78,7 @@ pub fn detect_format_from_magic(reader: &mut impl Read) -> io::Result<OutputForm
 pub enum VcfReader {
     /// Plain-text (possibly bgzf-compressed) VCF.
     Vcf(vcf::io::Reader<Box<dyn BufRead>>),
-    /// Binary BCF.
+    /// Binary BCF (read-only; BCF output is not supported in v1).
     Bcf(bcf::io::Reader<Box<dyn Read>>),
 }
 
@@ -101,28 +97,11 @@ impl VcfReader {
 
 // ── VcfWriter enum ────────────────────────────────────────────────────────────
 
-/// A format-agnostic VCF/BCF writer backed by a boxed [`Write`].
+/// A VCF writer backed by a boxed [`Write`].
 ///
-/// Construct via [`create_vcf_writer`].
-pub enum VcfWriter {
-    /// Plain-text (possibly bgzf-compressed) VCF.
-    Vcf(vcf::io::Writer<Box<dyn Write>>),
-    /// Binary BCF.
-    Bcf(bcf::io::Writer<Box<dyn Write>>),
-}
-
-impl VcfWriter {
-    /// Write the VCF/BCF header.
-    pub fn write_header(&mut self, header: &vcf::Header) -> io::Result<()> {
-        match self {
-            VcfWriter::Vcf(w) => w.write_header(header),
-            VcfWriter::Bcf(w) => w.write_header(header),
-        }
-    }
-
-    // TODO: add a `write_record` method once the normalize, liftover, and
-    // filter modules are implemented and a shared record type is established.
-}
+/// In v1 only plain-text VCF output is supported. For BCF output, pipe
+/// through `bcftools view -O b`. Construct via [`create_vcf_writer`].
+pub type VcfWriter = vcf::io::Writer<Box<dyn Write>>;
 
 // ── open_vcf ──────────────────────────────────────────────────────────────────
 
@@ -136,13 +115,12 @@ impl VcfWriter {
 pub fn open_vcf(path: Option<&Path>) -> anyhow::Result<VcfReader> {
     match path {
         Some(p) => {
-            let fmt = format_from_path(p);
-            match fmt {
-                OutputFormat::Bcf => {
+            match p.extension().and_then(|e| e.to_str()) {
+                Some("bcf") => {
                     let reader = bcf::io::reader::Builder::default().build_from_path(p)?;
                     Ok(VcfReader::Bcf(reader))
                 }
-                OutputFormat::Vcf => {
+                _ => {
                     let reader = vcf::io::reader::Builder::default().build_from_path(p)?;
                     Ok(VcfReader::Vcf(reader))
                 }
@@ -163,23 +141,15 @@ pub fn open_vcf(path: Option<&Path>) -> anyhow::Result<VcfReader> {
                 bytes[..len].to_vec()
             };
 
-            let fmt = if peeked.len() == 4 && peeked[..] == BCF_MAGIC {
-                OutputFormat::Bcf
-            } else {
-                OutputFormat::Vcf
-            };
+            let is_bcf = peeked.len() == 4 && peeked[..] == BCF_MAGIC;
 
-            // Box the stdin as a `dyn Read` / `dyn BufRead`.
-            match fmt {
-                OutputFormat::Bcf => {
-                    let inner: Box<dyn Read> =
-                        Box::new(bgzf::io::Reader::new(buf_stdin));
-                    Ok(VcfReader::Bcf(bcf::io::Reader::from(inner)))
-                }
-                OutputFormat::Vcf => {
-                    let inner: Box<dyn BufRead> = Box::new(buf_stdin);
-                    Ok(VcfReader::Vcf(vcf::io::Reader::new(inner)))
-                }
+            if is_bcf {
+                let inner: Box<dyn Read> =
+                    Box::new(bgzf::io::Reader::new(buf_stdin));
+                Ok(VcfReader::Bcf(bcf::io::Reader::from(inner)))
+            } else {
+                let inner: Box<dyn BufRead> = Box::new(buf_stdin);
+                Ok(VcfReader::Vcf(vcf::io::Reader::new(inner)))
             }
         }
     }
@@ -187,44 +157,29 @@ pub fn open_vcf(path: Option<&Path>) -> anyhow::Result<VcfReader> {
 
 // ── create_vcf_writer ─────────────────────────────────────────────────────────
 
-/// Open a VCF or BCF file for writing.
+/// Open a VCF file for writing.
 ///
 /// * `path = Some(p)` – write to the file at `p`, creating or truncating it.
+///   If the path ends in `.gz` or `.bgz`, bgzf compression is applied.
 /// * `path = None` – write to stdout.
 ///
-/// The `format` argument controls whether VCF or BCF is written. When writing
-/// VCF to a path ending in `.gz`/`.bgz`, bgzf compression is applied
-/// automatically.
+/// Only VCF output is supported in v1. For BCF output, pipe through
+/// `bcftools view -O b`.
 pub fn create_vcf_writer(
     path: Option<&Path>,
-    format: OutputFormat,
+    _format: OutputFormat,
 ) -> anyhow::Result<VcfWriter> {
-    match path {
-        Some(p) => match format {
-            OutputFormat::Bcf => {
-                let writer = bcf::io::writer::Builder::default().build_from_path(p)?;
-                Ok(VcfWriter::Bcf(writer))
-            }
-            OutputFormat::Vcf => {
-                let writer = vcf::io::writer::Builder::default().build_from_path(p)?;
-                Ok(VcfWriter::Vcf(writer))
-            }
-        },
+    let writer: Box<dyn Write> = match path {
+        Some(p) => {
+            let file = std::fs::File::create(p)?;
+            Box::new(file)
+        }
         None => {
             let stdout = io::stdout();
-            match format {
-                OutputFormat::Bcf => {
-                    let inner: Box<dyn Write> =
-                        Box::new(bgzf::io::Writer::new(stdout.lock()));
-                    Ok(VcfWriter::Bcf(bcf::io::Writer::from(inner)))
-                }
-                OutputFormat::Vcf => {
-                    let inner: Box<dyn Write> = Box::new(io::BufWriter::new(stdout.lock()));
-                    Ok(VcfWriter::Vcf(vcf::io::Writer::new(inner)))
-                }
-            }
+            Box::new(io::BufWriter::new(stdout.lock()))
         }
-    }
+    };
+    Ok(vcf::io::Writer::new(writer))
 }
 
 // ── Tests ─────────────────────────────────────────────────────────────────────
@@ -237,9 +192,10 @@ mod tests {
     // ── format_from_path ──────────────────────────────────────────────────────
 
     #[test]
-    fn format_from_path_bcf() {
+    fn format_from_path_bcf_returns_vcf() {
+        // BCF output is not supported; .bcf paths yield Vcf for forward-compat.
         let p = PathBuf::from("variants.bcf");
-        assert_eq!(format_from_path(&p), OutputFormat::Bcf);
+        assert_eq!(format_from_path(&p), OutputFormat::Vcf);
     }
 
     #[test]
@@ -273,8 +229,9 @@ mod tests {
     }
 
     #[test]
-    fn is_compressed_bcf() {
-        assert!(is_compressed_path(Path::new("sample.bcf")));
+    fn not_compressed_bcf() {
+        // .bcf is no longer treated as a compressed output path.
+        assert!(!is_compressed_path(Path::new("sample.bcf")));
     }
 
     #[test]
@@ -292,28 +249,19 @@ mod tests {
     #[test]
     fn magic_detects_bcf() {
         let mut data = b"BCF\x02extra bytes".as_ref();
-        assert_eq!(
-            detect_format_from_magic(&mut data).unwrap(),
-            OutputFormat::Bcf
-        );
+        assert!(detect_format_from_magic(&mut data).unwrap());
     }
 
     #[test]
     fn magic_detects_vcf_from_hash() {
         // VCF headers start with "##fi…"
         let mut data = b"##fileformat=VCFv4.3\n".as_ref();
-        assert_eq!(
-            detect_format_from_magic(&mut data).unwrap(),
-            OutputFormat::Vcf
-        );
+        assert!(!detect_format_from_magic(&mut data).unwrap());
     }
 
     #[test]
     fn magic_empty_reader_is_vcf() {
         let mut data: &[u8] = b"";
-        assert_eq!(
-            detect_format_from_magic(&mut data).unwrap(),
-            OutputFormat::Vcf
-        );
+        assert!(!detect_format_from_magic(&mut data).unwrap());
     }
 }

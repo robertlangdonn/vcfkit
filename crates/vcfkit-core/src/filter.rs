@@ -148,7 +148,6 @@ where
         .read_header()
         .map_err(|e| VcfkitError::Other(format!("failed to read VCF header: {e}")))?;
 
-    // TODO: honour options.output_format for BCF output (deferred — same as normalize/liftover)
     let mut vcf_writer = vcf::io::Writer::new(writer);
     vcf_writer
         .write_header(&header)

@@ -97,8 +97,7 @@ pub struct NormalizeStats {
 /// `reference_path` must point at a bgzf-indexed or plain FASTA alongside a
 /// `.fai` index (SAMtools style).
 ///
-/// Currently only emits plain VCF; `options.output_format` is reserved for a
-/// future BCF writer.
+/// Emits plain VCF. For BCF output, pipe through `bcftools view -O b`.
 pub fn normalize<R: BufRead, W: Write>(
     reader: R,
     writer: W,
