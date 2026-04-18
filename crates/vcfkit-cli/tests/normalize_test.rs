@@ -562,6 +562,41 @@ fn cli_check_ref_error_exits_nonzero() {
     );
 }
 
+// ── out-of-bounds position test ───────────────────────────────────────────────
+
+#[test]
+fn out_of_bounds_position_is_skipped_not_aborted() {
+    // A record at position 999999 on chr1 (declared length=120 in the header)
+    // must be silently skipped: the run completes, out_of_bounds==1, and the
+    // position does not appear in the output.
+    let input = b"##fileformat=VCFv4.2\n\
+##FILTER=<ID=PASS,Description=\"All filters passed\">\n\
+##contig=<ID=chr1,length=120>\n\
+##FORMAT=<ID=GT,Number=1,Type=String,Description=\"Genotype\">\n\
+#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\tFORMAT\tSAMPLE1\n\
+chr1\t10\t.\tT\tA\t50\tPASS\t.\tGT\t0/1\n\
+chr1\t999999\t.\tA\tG\t50\tPASS\t.\tGT\t0/1\n";
+    let opts = NormalizeOptions {
+        split_multiallelics: false,
+        left_align: false,
+        check_ref: RefCheck::Ignore,
+        output_format: OutputFormat::Vcf,
+    };
+    let (out, stats) =
+        run_normalize(input, opts);
+    // Run must complete (not panic/error).
+    assert_eq!(stats.out_of_bounds, 1, "expected 1 out-of-bounds record skipped");
+    assert_eq!(stats.input_records, 2);
+    // Only the in-bounds record (pos=10) appears in the output.
+    let records = parse_vcf_records(&out);
+    assert_eq!(records.len(), 1, "only the in-bounds record should be written");
+    assert_eq!(records[0].pos, 10, "the remaining record should be at position 10");
+    assert!(
+        records.iter().all(|r| r.pos != 999999),
+        "out-of-bounds position 999999 must not appear in output"
+    );
+}
+
 // ── differential tests against bcftools norm ─────────────────────────────────
 //
 // These are marked `#[ignore]` because `bcftools` is not guaranteed to be on

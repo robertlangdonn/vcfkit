@@ -43,7 +43,7 @@ pub fn run(args: &NormalizeArgs, quiet: bool) -> anyhow::Result<()> {
         ));
     }
 
-    let reporter = ProgressReporter::new(None, quiet);
+    let reporter = ProgressReporter::new_with_flags(None, quiet, args.no_progress);
     let on_record = |_n: u64| reporter.inc();
 
     // Open input (path or stdin).
@@ -89,7 +89,7 @@ pub fn run(args: &NormalizeArgs, quiet: bool) -> anyhow::Result<()> {
     reporter.finish("normalize complete");
 
     if !quiet {
-        eprintln!(
+        let mut summary = format!(
             "normalize: {} in, {} out ({} left-aligned, {} multi-allelic sites split, {} REF mismatches)",
             stats.input_records,
             stats.output_records,
@@ -97,6 +97,10 @@ pub fn run(args: &NormalizeArgs, quiet: bool) -> anyhow::Result<()> {
             stats.split_sites,
             stats.ref_mismatches,
         );
+        if stats.out_of_bounds > 0 {
+            summary.push_str(&format!(", {} out-of-bounds skipped", stats.out_of_bounds));
+        }
+        eprintln!("{summary}");
     }
 
     Ok(())

@@ -1,13 +1,16 @@
 //! Progress-bar reporting for long-running CLI operations.
 //!
 //! Wraps [`indicatif`] with a no-op fallback when the output isn't a TTY, the
-//! user passed `--quiet`, or the total is small enough that a progress bar is
-//! more noise than signal.
+//! user passed `--quiet`, `--no-progress`, or the total is small enough that a
+//! progress bar is more noise than signal.
+//!
+//! The draw target is **always** stderr so progress output never contaminates
+//! a piped VCF stream on stdout.
 
 use std::io::IsTerminal;
 use std::time::Duration;
 
-use indicatif::{ProgressBar, ProgressStyle};
+use indicatif::{ProgressBar, ProgressDrawTarget, ProgressStyle};
 
 /// Below this threshold (records) a progress bar is suppressed — small jobs
 /// finish before the bar would even paint.
@@ -22,14 +25,17 @@ impl ProgressReporter {
     /// Create a new reporter.
     ///
     /// Returns a silent reporter (no-op) when any of the following hold:
-    /// * `quiet` is true,
+    /// * `quiet` or `no_progress` is true,
     /// * stderr is not a TTY,
     /// * `total_records` is `Some(n)` with `n <= 1000`.
     ///
     /// When `total_records` is `None` the reporter paints an indeterminate
     /// spinner — we don't know the total (e.g. streaming from stdin).
-    pub fn new(total_records: Option<u64>, quiet: bool) -> Self {
-        if quiet || !std::io::stderr().is_terminal() {
+    ///
+    /// The draw target is explicitly set to stderr so that the bar never
+    /// writes to stdout and cannot corrupt piped VCF output.
+    pub fn new_with_flags(total_records: Option<u64>, quiet: bool, no_progress: bool) -> Self {
+        if quiet || no_progress || !std::io::stderr().is_terminal() {
             return Self { bar: None };
         }
 
@@ -37,6 +43,7 @@ impl ProgressReporter {
             Some(n) if n <= MIN_RECORDS_FOR_BAR => Self { bar: None },
             Some(n) => {
                 let bar = ProgressBar::new(n);
+                bar.set_draw_target(ProgressDrawTarget::stderr());
                 bar.set_style(
                     ProgressStyle::with_template(
                         "[{elapsed_precise}] {human_pos}/{human_len} records {bar:20.cyan/blue} {percent}% @ {per_sec} ETA {eta_precise}",
@@ -49,6 +56,7 @@ impl ProgressReporter {
             }
             None => {
                 let bar = ProgressBar::new_spinner();
+                bar.set_draw_target(ProgressDrawTarget::stderr());
                 bar.set_style(
                     ProgressStyle::with_template(
                         "[{elapsed_precise}] {spinner} {human_pos} records @ {per_sec}",
@@ -82,7 +90,7 @@ mod tests {
 
     #[test]
     fn quiet_reporter_is_noop() {
-        let r = ProgressReporter::new(Some(10_000), true);
+        let r = ProgressReporter::new_with_flags(Some(10_000), true, false);
         r.inc();
         r.inc();
         r.finish("done");
@@ -91,10 +99,18 @@ mod tests {
     }
 
     #[test]
+    fn no_progress_flag_forces_noop() {
+        let r = ProgressReporter::new_with_flags(Some(10_000), false, true);
+        r.inc();
+        r.finish("done");
+        assert!(r.bar.is_none());
+    }
+
+    #[test]
     fn small_total_hides_bar() {
         // Both the non-TTY early-return and the small-record branch now
         // return bar: None — assert that in either case bar is None.
-        let r = ProgressReporter::new(Some(42), false);
+        let r = ProgressReporter::new_with_flags(Some(42), false, false);
         r.inc();
         r.finish("done");
         assert!(r.bar.is_none());
@@ -102,7 +118,7 @@ mod tests {
 
     #[test]
     fn none_total_does_not_panic() {
-        let r = ProgressReporter::new(None, false);
+        let r = ProgressReporter::new_with_flags(None, false, false);
         r.inc();
         r.finish("done");
     }

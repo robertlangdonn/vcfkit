@@ -88,6 +88,8 @@ pub struct NormalizeStats {
     pub split_sites: usize,
     /// Count of records whose REF mismatched the reference FASTA.
     pub ref_mismatches: usize,
+    /// Count of records skipped because their POS exceeded the declared contig length.
+    pub out_of_bounds: usize,
 }
 
 // ── public entry point ───────────────────────────────────────────────────────
@@ -152,6 +154,25 @@ where
         stats.input_records += 1;
         on_record(stats.input_records as u64);
 
+        // Out-of-bounds check: if the VCF header declares a contig length and
+        // the record's POS exceeds it, warn and skip rather than aborting.
+        if let Some(pos) = record.variant_start() {
+            let pos = pos.get();
+            let chrom = record.reference_sequence_name();
+            if let Some(contig_map) = header.contigs().get(chrom) {
+                if let Some(contig_length) = contig_map.length() {
+                    if pos > contig_length {
+                        tracing::warn!(
+                            "position {} out of bounds for contig {} (length {}); skipping",
+                            pos, chrom, contig_length
+                        );
+                        stats.out_of_bounds += 1;
+                        continue;
+                    }
+                }
+            }
+        }
+
         let processed = process_record(&record, &header, fasta.as_mut(), &options, &mut stats)?;
 
         for rec in processed {
@@ -167,7 +188,7 @@ where
 
 // ── core algorithm ───────────────────────────────────────────────────────────
 
-/// Per-record pipeline: split → left-align → REF check.
+/// Per-record pipeline: REF check (once per site) → split → left-align.
 fn process_record(
     record: &RecordBuf,
     header: &vcf::Header,
@@ -180,7 +201,23 @@ fn process_record(
         return Ok(vec![record.clone()]);
     }
 
-    // 1. Split multi-allelics (if enabled and needed).
+    // 1. REF check — run ONCE on the original record before any splitting so
+    //    that a triallelic site counts as a single mismatch (not one per split).
+    let ref_mismatch = if options.check_ref != RefCheck::Ignore {
+        if let Some(fa) = fasta.as_deref_mut() {
+            check_ref(record, fa, options.check_ref)?
+        } else {
+            None
+        }
+    } else {
+        None
+    };
+    if let Some(ref msg) = ref_mismatch {
+        stats.ref_mismatches += 1;
+        eprintln!("{msg}");
+    }
+
+    // 2. Split multi-allelics (if enabled and needed).
     let split_records: Vec<RecordBuf> = if options.split_multiallelics
         && record.alternate_bases().as_ref().len() > 1
     {
@@ -190,22 +227,13 @@ fn process_record(
         vec![record.clone()]
     };
 
-    // 2. For each (possibly-split) record, left-align and REF-check.
+    // 3. For each (possibly-split) record, left-align.
     let mut out = Vec::with_capacity(split_records.len());
     for mut rec in split_records {
         if options.left_align {
             if let Some(fa) = fasta.as_deref_mut() {
                 if left_align_record(&mut rec, fa)? {
                     stats.left_aligned += 1;
-                }
-            }
-        }
-
-        if options.check_ref != RefCheck::Ignore {
-            if let Some(fa) = fasta.as_deref_mut() {
-                if let Some(err) = check_ref(&rec, fa, options.check_ref)? {
-                    stats.ref_mismatches += 1;
-                    eprintln!("{err}");
                 }
             }
         }
@@ -305,13 +333,20 @@ fn check_ref(
         return Ok(None);
     }
     let want = vcf_ref.as_bytes()[0].to_ascii_uppercase();
+    // If the position is beyond the FASTA sequence, treat as out-of-bounds.
+    // For Error mode we still return an error; for Warn/Ignore we return None
+    // (the record will have already been skipped at the loop level if the VCF
+    // header declared a contig length, but we handle the FASTA-only case here).
     let have = match seq.get(pos - 1).copied() {
         Some(b) => b.to_ascii_uppercase(),
-        None => {
-            return Err(VcfkitError::Other(format!(
-                "position {pos} out of bounds for contig {chrom}"
-            )));
-        }
+        None => match mode {
+            RefCheck::Error => {
+                return Err(VcfkitError::Other(format!(
+                    "position {pos} out of bounds for contig {chrom}"
+                )));
+            }
+            _ => return Ok(None),
+        },
     };
     if want == have {
         return Ok(None);

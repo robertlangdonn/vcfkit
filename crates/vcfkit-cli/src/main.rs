@@ -96,6 +96,10 @@ pub struct NormalizeArgs {
     #[arg(long, value_name = "MODE", default_value = "warn")]
     pub check_ref: CheckRefMode,
 
+    /// Suppress the progress bar even when stderr is a TTY
+    #[arg(long)]
+    pub no_progress: bool,
+
     /// Input VCF/BCF (default: stdin)
     #[arg(value_name = "INPUT")]
     pub input: Option<PathBuf>,
@@ -162,6 +166,10 @@ pub struct LiftoverArgs {
     #[arg(long)]
     pub no_fix_swapped_ref: bool,
 
+    /// Suppress the progress bar even when stderr is a TTY
+    #[arg(long)]
+    pub no_progress: bool,
+
     /// Input VCF/BCF (default: stdin)
     #[arg(value_name = "INPUT")]
     pub input: Option<PathBuf>,
@@ -184,6 +192,10 @@ pub struct FilterArgs {
     /// Output file (default: stdout)
     #[arg(short, long, value_name = "FILE")]
     pub output: Option<PathBuf>,
+
+    /// Suppress the progress bar even when stderr is a TTY
+    #[arg(long)]
+    pub no_progress: bool,
 
     /// Input VCF/BCF (default: stdin)
     #[arg(value_name = "INPUT")]
