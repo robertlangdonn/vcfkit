@@ -11,7 +11,7 @@ license = "MIT"
 repository = "https://github.com/robertlangdonn/vcfkit"
 
 [workspace.dependencies]
-noodles = { version = "0.109", features = ["vcf", "bcf", "bgzf", "fasta", "csi", "tabix"] }
+noodles = { version = "0.109", features = ["core", "vcf", "bcf", "bgzf", "fasta", "csi", "tabix"] }
 clap = { version = "4", features = ["derive", "cargo"] }
 clap_complete = "4"
 anyhow = "1"

@@ -6,6 +6,8 @@ use clap::{CommandFactory, Parser, Subcommand, ValueEnum};
 use clap_complete::{generate, Shell};
 use tracing_subscriber::{EnvFilter, fmt};
 
+mod commands;
+
 // ---------------------------------------------------------------------------
 // Top-level CLI
 // ---------------------------------------------------------------------------
@@ -198,8 +200,8 @@ fn main() -> Result<()> {
         .init();
 
     match cli.command {
-        Commands::Normalize(_args) => {
-            eprintln!("normalize: not yet implemented");
+        Commands::Normalize(args) => {
+            commands::normalize::run(&args, cli.quiet)?;
         }
         Commands::Liftover(args) => {
             if args.list_chains {
