@@ -2,6 +2,13 @@
 
 Fast VCF toolkit for bioinformaticians. Three operations every pipeline needs — normalize, liftover, filter — as a single static binary with zero dependencies.
 
+On 1000 Genomes chr22 (1.1M variants), `vcfkit filter` is **4× faster** than `bcftools view`:
+
+| Command | Mean time |
+|---------|-----------|
+| `vcfkit filter -e 'INFO/AF < 0.01'` | **390 ms** |
+| `bcftools view -i 'INFO/AF < 0.01'` | 1,635 ms |
+
 ```
 vcfkit normalize -f ref.fa input.vcf > normalized.vcf
 vcfkit liftover -s hg19.fa -t hg38.fa -c hg19ToHg38.over.chain.gz input.vcf > lifted.vcf
@@ -14,7 +21,8 @@ vcfkit filter -e "INFO/AF < 0.01 && FILTER == 'PASS'" input.vcf > rare_variants.
 cargo install vcfkit-cli   # installs the `vcfkit` binary
 ```
 
-Or download a pre-built binary from [Releases](https://github.com/robertlangdonn/vcfkit/releases).
+Or download a pre-built binary from [Releases](https://github.com/robertlangdonn/vcfkit/releases).  
+No Rust required for the pre-built binary.
 
 ## Usage
 
@@ -33,7 +41,7 @@ vcfkit normalize -f reference.fasta input.vcf -o output.vcf
     --check-ref <MODE>      ignore | warn | error  (default: warn)
 ```
 
-Equivalent to `bcftools norm -f ref.fa -m-any -c w`, but faster.
+Equivalent to `bcftools norm -f ref.fa -m-any -c w`.
 
 ### liftover
 
@@ -65,6 +73,8 @@ vcfkit filter -e "FILTER == 'PASS'" --invert input.vcf   # keep non-PASS
 Supported fields: `INFO/*`, `FORMAT/*`, `CHROM`, `POS`, `QUAL`, `FILTER`  
 Operators: `<` `<=` `>` `>=` `==` `!=` `&&` `||` `!` `~` `!~`
 
+Multi-allelic INFO fields (e.g. `AF=0.12,0.003`) use any-element semantics — the filter matches if any value satisfies the condition.
+
 ## Piping
 
 All three operations read from stdin and write to stdout by default:
@@ -78,14 +88,7 @@ cat input.vcf \
 
 ## Performance
 
-On 1000 Genomes chr22 (1.1M variants), `vcfkit filter` is **4× faster** than `bcftools view`:
-
-| Command | Time |
-|---------|------|
-| `vcfkit filter -e 'INFO/AF < 0.01'` | 390 ms |
-| `bcftools view -i 'INFO/AF < 0.01'` | 1,635 ms |
-
-See [BENCHMARKS.md](BENCHMARKS.md) for methodology and full results.
+The filter fast path reads raw VCF lines and only parses fields the expression references — matching records are written as raw bytes without re-serialization. See [BENCHMARKS.md](BENCHMARKS.md) for full results and methodology.
 
 ## Building from source
 
