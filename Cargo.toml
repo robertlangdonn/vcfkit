@@ -13,6 +13,7 @@ repository = "https://github.com/robertlangdonn/vcfkit"
 [workspace.dependencies]
 noodles = { version = "0.109", features = ["vcf", "bcf", "bgzf", "fasta", "csi", "tabix"] }
 clap = { version = "4", features = ["derive", "cargo"] }
+clap_complete = "4"
 anyhow = "1"
 thiserror = "2"
 tracing = "0.1"
