@@ -192,7 +192,7 @@ fn indels_left_align_to_norm_tag_positions() {
         assert_eq!(r.pos, norm_pos, "record {i} POS");
         assert_eq!(&r.ref_allele, norm_ref, "record {i} REF");
         assert_eq!(
-            r.alt_alleles.get(0).expect("record must have ALT after left-align"),
+            r.alt_alleles.first().expect("record must have ALT after left-align"),
             norm_alt,
             "record {i} ALT"
         );

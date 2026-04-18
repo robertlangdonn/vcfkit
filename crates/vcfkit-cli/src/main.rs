@@ -110,17 +110,32 @@ pub enum CheckRefMode {
 
 #[derive(Debug, Parser)]
 pub struct LiftoverArgs {
-    /// Source reference genome (required)
-    #[arg(short = 's', long, value_name = "FASTA", required = true)]
-    pub source_ref: PathBuf,
+    /// Source reference genome (required unless --list-chains)
+    #[arg(
+        short = 's',
+        long,
+        value_name = "FASTA",
+        required_unless_present = "list_chains"
+    )]
+    pub source_ref: Option<PathBuf>,
 
-    /// Target reference genome (required)
-    #[arg(short = 't', long, value_name = "FASTA", required = true)]
-    pub target_ref: PathBuf,
+    /// Target reference genome (required unless --list-chains)
+    #[arg(
+        short = 't',
+        long,
+        value_name = "FASTA",
+        required_unless_present = "list_chains"
+    )]
+    pub target_ref: Option<PathBuf>,
 
-    /// Chain file (required)
-    #[arg(short = 'c', long, value_name = "FILE", required = true)]
-    pub chain: PathBuf,
+    /// Chain file (required unless --list-chains)
+    #[arg(
+        short = 'c',
+        long,
+        value_name = "FILE",
+        required_unless_present = "list_chains"
+    )]
+    pub chain: Option<PathBuf>,
 
     /// Write rejected variants here
     #[arg(short = 'r', long, value_name = "FILE")]
@@ -133,6 +148,15 @@ pub struct LiftoverArgs {
     /// Print known chain file URLs and exit
     #[arg(long)]
     pub list_chains: bool,
+
+    /// Add INFO/SRC_CONTIG and INFO/SRC_POS to each mapped record
+    #[arg(long)]
+    pub write_src_coords: bool,
+
+    /// Do not flip alleles when a chain block is on the opposite strand;
+    /// reject such records instead.
+    #[arg(long)]
+    pub no_fix_swapped_ref: bool,
 
     /// Input VCF/BCF (default: stdin)
     #[arg(value_name = "INPUT")]
@@ -204,11 +228,7 @@ fn main() -> Result<()> {
             commands::normalize::run(&args, cli.quiet)?;
         }
         Commands::Liftover(args) => {
-            if args.list_chains {
-                eprintln!("liftover --list-chains: not yet implemented");
-            } else {
-                eprintln!("liftover: not yet implemented");
-            }
+            commands::liftover::run(&args, cli.quiet)?;
         }
         Commands::Filter(_args) => {
             eprintln!("filter: not yet implemented");
