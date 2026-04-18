@@ -1,5 +1,3 @@
-#![allow(dead_code)]
-
 mod commands;
 mod output;
 mod telemetry;

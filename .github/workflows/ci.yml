@@ -2,7 +2,7 @@ name: CI
 
 on:
   push:
-    branches: [main, phase-1-scaffold]
+    branches: ['main', 'phase-*']
   pull_request:
 
 jobs:
@@ -14,6 +14,6 @@ jobs:
         with:
           components: clippy, rustfmt
       - uses: Swatinem/rust-cache@v2
-      - run: cargo test --all
-      - run: cargo clippy --all -- -D warnings
+      - run: cargo test --workspace
+      - run: cargo clippy --workspace -- -D warnings
       - run: cargo fmt --all --check
