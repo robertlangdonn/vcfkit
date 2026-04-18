@@ -148,7 +148,7 @@ BCFTOOLS_FILT=$(parse_mean "${FILTER_RESULTS}" "bcftools view -i")
 cat > "${REPORT}" <<EOF
 # E2E Benchmark Results
 
-Generated: $(date -u +"%Y-%m-%d %Human:%M:%S UTC" 2>/dev/null || date -u)
+Generated: $(date -u +"%Y-%m-%d %H:%M:%S UTC" 2>/dev/null || date -u)
 
 Corpus: \`tests/corpus/synthetic/\`
 Target: vcfkit should be within **1.5×** of bcftools throughput.
