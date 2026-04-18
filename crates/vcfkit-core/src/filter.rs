@@ -36,12 +36,14 @@
 //! i64; anything else (including `FILTER`) as string. Comparisons against a
 //! missing value (`.`) evaluate to false.
 
-use std::io::{BufRead, Write};
+use std::{
+    collections::HashMap,
+    io::{BufRead, Write},
+};
 
 use noodles::vcf::{
     self,
     variant::{
-        io::Write as _,
         record_buf::{
             info::field::{value::Array as InfoArray, Value as InfoValue},
             samples::sample::{
@@ -129,7 +131,7 @@ pub fn filter<R: BufRead, W: Write>(
 /// read. Used by the CLI to drive a progress bar.
 pub fn filter_with_progress<R, W, F>(
     reader: R,
-    writer: W,
+    mut writer: W,
     expression: FilterExpression,
     options: FilterOptions,
     mut on_record: F,
@@ -139,36 +141,58 @@ where
     W: Write,
     F: FnMut(u64),
 {
+    // Phase 1: read the header with noodles so we have INFO type metadata.
     let mut vcf_reader = vcf::io::Reader::new(reader);
     let header = vcf_reader
         .read_header()
         .map_err(|e| VcfkitError::Other(format!("failed to read VCF header: {e}")))?;
 
-    let mut vcf_writer = vcf::io::Writer::new(writer);
-    vcf_writer
-        .write_header(&header)
-        .map_err(|e| VcfkitError::Other(format!("failed to write VCF header: {e}")))?;
+    // Build a lightweight INFO-metadata map from the noodles header.
+    let info_meta = build_info_meta(&header);
 
+    // Write the header to output using noodles, then release the borrow.
+    {
+        let mut vcf_writer = vcf::io::Writer::new(&mut writer);
+        vcf_writer
+            .write_header(&header)
+            .map_err(|e| VcfkitError::Other(format!("failed to write VCF header: {e}")))?;
+    }
+
+    // Phase 2: fast raw-line loop — no record allocation per line.
+    // `vcf::io::Reader` wraps a `BufRead`; we recover it via `into_inner`.
+    let mut raw_reader = vcf_reader.into_inner();
+    let mut line = String::with_capacity(4096);
     let mut stats = FilterStats::default();
-    let mut record = RecordBuf::default();
 
     loop {
-        let n = vcf_reader
-            .read_record_buf(&header, &mut record)
-            .map_err(|e| VcfkitError::Other(format!("failed to read VCF record: {e}")))?;
+        line.clear();
+        let n = raw_reader
+            .read_line(&mut line)
+            .map_err(|e| VcfkitError::Other(format!("read error: {e}")))?;
         if n == 0 {
             break;
         }
+
+        // Skip any residual header lines (should not appear after read_header,
+        // but be safe).
+        if line.starts_with('#') {
+            continue;
+        }
+
         stats.input_records += 1;
         on_record(stats.input_records as u64);
 
-        let matches = expression.evaluate(&record, &header)?;
+        let Some(rec) = FastRecord::parse(&line) else {
+            continue;
+        };
+
+        let matches = eval_fast(&expression.ast, &rec, &info_meta)?;
         let keep = if options.invert { !matches } else { matches };
 
         if keep {
-            vcf_writer
-                .write_variant_record(&header, &record)
-                .map_err(|e| VcfkitError::Other(format!("failed to write record: {e}")))?;
+            writer
+                .write_all(rec.raw.as_bytes())
+                .map_err(|e| VcfkitError::Other(format!("write error: {e}")))?;
             stats.output_records += 1;
         } else {
             stats.filtered_out += 1;
@@ -176,6 +200,380 @@ where
     }
 
     Ok(stats)
+}
+
+// ── fast record type ─────────────────────────────────────────────────────────
+
+/// A zero-copy view of the first eight (mandatory) VCF columns, plus the
+/// FORMAT and first-sample columns when present.  All slices borrow from the
+/// raw line buffer — no heap allocation is needed to parse a record.
+struct FastRecord<'a> {
+    chrom: &'a str,
+    pos_str: &'a str,
+    _id: &'a str,
+    _ref: &'a str,
+    _alt: &'a str,
+    qual_str: &'a str,
+    filter_str: &'a str,
+    info_str: &'a str,
+    /// FORMAT column (column 8), or `""` when absent.
+    format_str: &'a str,
+    /// First sample column (column 9), or `""` when absent.
+    sample_str: &'a str,
+    /// The entire raw line including the trailing newline (used for
+    /// pass-through writes so we never re-serialise).
+    raw: &'a str,
+}
+
+impl<'a> FastRecord<'a> {
+    /// Split a tab-delimited VCF data line into field slices.
+    /// Returns `None` for lines that have fewer than 8 columns.
+    fn parse(line: &'a str) -> Option<Self> {
+        // We only need to split up to column 9 (FORMAT + first sample).
+        // Using a manual byte scan avoids allocating a Vec<&str>.
+        let mut iter = line.splitn(11, '\t');
+        let chrom = iter.next()?;
+        let pos_str = iter.next()?;
+        let _id = iter.next()?;
+        let _ref = iter.next()?;
+        let _alt = iter.next()?;
+        let qual_str = iter.next()?;
+        let filter_str = iter.next()?;
+        let info_str_raw = iter.next()?;
+        // Trim any trailing newline from the INFO field when there are no
+        // further columns (8-column VCF with no FORMAT/sample).
+        let info_str = info_str_raw.trim_end_matches(&['\n', '\r'][..]);
+
+        let format_str = iter
+            .next()
+            .unwrap_or("")
+            .trim_end_matches(&['\n', '\r'][..]);
+        let sample_str = iter
+            .next()
+            .unwrap_or("")
+            .trim_end_matches(&['\n', '\r'][..]);
+
+        Some(FastRecord {
+            chrom,
+            pos_str,
+            _id,
+            _ref,
+            _alt,
+            qual_str,
+            filter_str,
+            info_str,
+            format_str,
+            sample_str,
+            raw: line,
+        })
+    }
+
+    /// Look up a key in the INFO column using a linear scan.
+    ///
+    /// INFO format: `KEY1=VAL1;KEY2=VAL2;FLAG1;…`
+    ///
+    /// Returns the raw value string for `KEY=VAL` entries, or `"1"` for bare
+    /// flag keys, or `None` when the key is absent.
+    fn info_raw(&self, key: &str) -> Option<&'a str> {
+        if self.info_str == "." || self.info_str.is_empty() {
+            return None;
+        }
+        for entry in self.info_str.split(';') {
+            match entry.split_once('=') {
+                Some((k, v)) if k == key => {
+                    // Value of "." means explicitly missing.
+                    if v == "." {
+                        return None;
+                    }
+                    return Some(v);
+                }
+                Some(_) => {}
+                None => {
+                    // Bare flag.
+                    if entry == key {
+                        return Some("1");
+                    }
+                }
+            }
+        }
+        None
+    }
+
+    /// Look up a key in the FORMAT/first-sample columns.
+    ///
+    /// FORMAT: `GT:DP:GQ`   SAMPLE1: `0/1:40:55`
+    ///
+    /// Returns `None` when FORMAT or sample columns are absent or the key is
+    /// not found.
+    fn format_raw(&self, key: &str) -> Option<&'a str> {
+        if self.format_str.is_empty() || self.sample_str.is_empty() {
+            return None;
+        }
+        // Find the index of `key` in the FORMAT column, then extract the
+        // corresponding value from the first sample column.
+        let idx = self.format_str.split(':').position(|k| k == key)?;
+        let val = self.sample_str.split(':').nth(idx)?;
+        if val == "." {
+            None
+        } else {
+            Some(val)
+        }
+    }
+}
+
+// ── INFO field metadata extracted from the noodles header ────────────────────
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum InfoNumberKind {
+    /// `Number=1` — always a single value.
+    One,
+    /// `Number=A`, `R`, `G`, or `.` — potentially multiple comma-separated values.
+    Many,
+}
+
+#[derive(Debug, Clone, Copy)]
+struct InfoFieldMeta {
+    ty: noodles::vcf::header::record::value::map::info::Type,
+    number: InfoNumberKind,
+}
+
+fn build_info_meta(header: &vcf::Header) -> HashMap<String, InfoFieldMeta> {
+    use noodles::vcf::header::record::value::map::info::Number;
+
+    header
+        .infos()
+        .iter()
+        .map(|(key, map)| {
+            let number = match map.number() {
+                Number::Count(1) => InfoNumberKind::One,
+                _ => InfoNumberKind::Many,
+            };
+            (
+                key.to_string(),
+                InfoFieldMeta {
+                    ty: map.ty(),
+                    number,
+                },
+            )
+        })
+        .collect()
+}
+
+// ── fast evaluator ───────────────────────────────────────────────────────────
+
+fn eval_fast(
+    e: &Expr,
+    rec: &FastRecord<'_>,
+    meta: &HashMap<String, InfoFieldMeta>,
+) -> Result<bool, VcfkitError> {
+    match e {
+        Expr::And(a, b) => Ok(eval_fast(a, rec, meta)? && eval_fast(b, rec, meta)?),
+        Expr::Or(a, b) => Ok(eval_fast(a, rec, meta)? || eval_fast(b, rec, meta)?),
+        Expr::Not(x) => Ok(!eval_fast(x, rec, meta)?),
+        Expr::Compare(lhs, op, rhs) => {
+            let lv = fast_load_operand(lhs, rec, meta);
+            let rv = fast_load_operand(rhs, rec, meta);
+            compare(&lv, *op, &rv)
+        }
+        Expr::Exists(field) => Ok(!matches!(
+            fast_load_field(field, rec, meta),
+            Scalar::Missing
+        )),
+    }
+}
+
+fn fast_load_operand(
+    o: &Operand,
+    rec: &FastRecord<'_>,
+    meta: &HashMap<String, InfoFieldMeta>,
+) -> Scalar {
+    match o {
+        Operand::Field(f) => fast_load_field(f, rec, meta),
+        Operand::Number(n) => Scalar::Float(*n),
+        Operand::String(s) => Scalar::String(s.clone()),
+    }
+}
+
+fn fast_load_field(
+    f: &Field,
+    rec: &FastRecord<'_>,
+    meta: &HashMap<String, InfoFieldMeta>,
+) -> Scalar {
+    match f {
+        Field::Chrom => Scalar::String(rec.chrom.to_string()),
+        Field::Pos => match rec.pos_str.parse::<i64>() {
+            Ok(p) => Scalar::Integer(p),
+            Err(_) => Scalar::Missing,
+        },
+        Field::Qual => {
+            let q = rec.qual_str.trim_end_matches(&['\n', '\r'][..]);
+            if q == "." || q.is_empty() {
+                Scalar::Missing
+            } else {
+                match q.parse::<f64>() {
+                    Ok(v) => Scalar::Float(v),
+                    Err(_) => Scalar::Missing,
+                }
+            }
+        }
+        Field::Filter => {
+            let f = rec.filter_str;
+            if f == "." || f.is_empty() {
+                Scalar::Missing
+            } else {
+                Scalar::String(f.to_string())
+            }
+        }
+        Field::Info(key) => fast_load_info(rec, meta, key),
+        Field::Format(key) => fast_load_format(rec, key),
+    }
+}
+
+fn fast_load_info(
+    rec: &FastRecord<'_>,
+    meta: &HashMap<String, InfoFieldMeta>,
+    key: &str,
+) -> Scalar {
+    use noodles::vcf::header::record::value::map::info::Type as InfoType;
+
+    let raw = match rec.info_raw(key) {
+        Some(v) => v,
+        None => return Scalar::Missing,
+    };
+
+    // "1" is returned for bare FLAG keys — treat as integer 1.
+    if raw == "1" {
+        // Confirm it's truly a flag by checking for bare key existence or
+        // declared Flag type.  Since info_raw returns "1" only for bare keys,
+        // we can just check: if the header says Flag, or the value is literally
+        // "1" with no meta entry, return Integer(1).
+        if let Some(m) = meta.get(key) {
+            if m.ty == InfoType::Flag {
+                return Scalar::Integer(1);
+            }
+        } else {
+            // No header declaration but bare key — treat as flag.
+            return Scalar::Integer(1);
+        }
+    }
+
+    let field_meta = meta.get(key);
+
+    // If the value contains commas and the field is declared as multi-valued,
+    // parse into a FloatArray for "any element" semantics.
+    let is_many = field_meta
+        .map(|m| m.number == InfoNumberKind::Many)
+        .unwrap_or(false);
+
+    if is_many && raw.contains(',') {
+        return fast_parse_array(raw, field_meta);
+    }
+
+    // Single value — parse according to declared type.
+    if let Some(m) = field_meta {
+        match m.ty {
+            InfoType::Integer => {
+                if let Ok(n) = raw.parse::<i64>() {
+                    return Scalar::Integer(n);
+                }
+            }
+            InfoType::Float => {
+                if let Ok(x) = raw.parse::<f64>() {
+                    return Scalar::Float(x);
+                }
+            }
+            InfoType::Flag => return Scalar::Integer(1),
+            _ => {}
+        }
+    } else {
+        // No header declaration: try numeric coercion.
+        if let Ok(n) = raw.parse::<i64>() {
+            return Scalar::Integer(n);
+        }
+        if let Ok(x) = raw.parse::<f64>() {
+            return Scalar::Float(x);
+        }
+    }
+
+    Scalar::String(raw.to_string())
+}
+
+/// Parse a comma-separated multi-value INFO field into a `FloatArray` (for
+/// numeric types) or a joined `String` (for string types).
+///
+/// Mirrors the semantics of `info_array_all` exactly.
+fn fast_parse_array(raw: &str, field_meta: Option<&InfoFieldMeta>) -> Scalar {
+    use noodles::vcf::header::record::value::map::info::Type as InfoType;
+
+    let elements: Vec<&str> = raw.split(',').collect();
+
+    if let Some(m) = field_meta {
+        match m.ty {
+            InfoType::Integer => {
+                let vals: Option<Vec<f64>> = elements
+                    .iter()
+                    .filter(|s| **s != ".")
+                    .map(|s| s.parse::<i64>().ok().map(|n| n as f64))
+                    .collect();
+                if let Some(v) = vals {
+                    if v.is_empty() {
+                        return Scalar::Missing;
+                    }
+                    return Scalar::FloatArray(v);
+                }
+            }
+            InfoType::Float => {
+                let vals: Option<Vec<f64>> = elements
+                    .iter()
+                    .filter(|s| **s != ".")
+                    .map(|s| s.parse::<f64>().ok())
+                    .collect();
+                if let Some(v) = vals {
+                    if v.is_empty() {
+                        return Scalar::Missing;
+                    }
+                    return Scalar::FloatArray(v);
+                }
+            }
+            _ => {}
+        }
+    } else {
+        // No declared type — try to coerce all elements to float.
+        let vals: Option<Vec<f64>> = elements
+            .iter()
+            .filter(|s| **s != ".")
+            .map(|s| s.parse::<f64>().ok())
+            .collect();
+        if let Some(v) = vals {
+            if !v.is_empty() {
+                return Scalar::FloatArray(v);
+            }
+        }
+    }
+
+    // Fall back to joined string (for `~` substring matching on string arrays).
+    let joined: Vec<&str> = elements.iter().filter(|s| **s != ".").copied().collect();
+    if joined.is_empty() {
+        Scalar::Missing
+    } else {
+        Scalar::String(joined.join(","))
+    }
+}
+
+fn fast_load_format(rec: &FastRecord<'_>, key: &str) -> Scalar {
+    match rec.format_raw(key) {
+        None => Scalar::Missing,
+        Some(val) => {
+            // Attempt numeric coercion without header metadata.
+            if let Ok(n) = val.parse::<i64>() {
+                return Scalar::Integer(n);
+            }
+            if let Ok(x) = val.parse::<f64>() {
+                return Scalar::Float(x);
+            }
+            Scalar::String(val.to_string())
+        }
+    }
 }
 
 // ── AST ──────────────────────────────────────────────────────────────────────

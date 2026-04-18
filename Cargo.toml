@@ -33,6 +33,12 @@ lto = "thin"
 codegen-units = 1
 strip = true
 
+# profiling: release speed + debug symbols (used with cargo flamegraph)
+[profile.profiling]
+inherits = "release"
+debug = true
+strip = false
+
 # The profile that 'dist' will build with
 [profile.dist]
 inherits = "release"

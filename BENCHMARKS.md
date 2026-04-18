@@ -38,26 +38,28 @@ extracted to plain VCF (sites-only, 149 MB, 1,103,547 records).
 
 | Command | Mean time | vs bcftools |
 |---------|-----------|-------------|
-| `vcfkit filter -e 'INFO/AF < 0.01'` | 4.38 s | 2.6× slower |
-| `bcftools view -i 'INFO/AF < 0.01'` | 1.69 s | — |
+| `vcfkit filter -e 'INFO/AF < 0.01'` | **390 ms** | **4.2× faster** |
+| `bcftools view -i 'INFO/AF < 0.01'` | 1,635 ms | — |
 
 ### filter (`FILTER == 'PASS'`)
 
 | Command | Mean time | vs bcftools |
 |---------|-----------|-------------|
-| `vcfkit filter -e "FILTER == 'PASS'"` | 4.87 s | 3.0× slower |
-| `bcftools view -f PASS` | 1.62 s | — |
+| `vcfkit filter -e "FILTER == 'PASS'"` | **462 ms** | **3.5× faster** |
+| `bcftools view -f PASS` | 1,610 ms | — |
 
-## Performance Notes
+## How the fast path works
 
-Current throughput on plain VCF is ~2.6–3× slower than bcftools. The bottleneck is
-`noodles::vcf::io::Reader::read_record_buf`, which parses every field into owned Rust
-types on each record. bcftools/htslib parses lazily and reuses scratch buffers.
+The filter hot loop bypasses noodles record parsing entirely:
 
-Planned fix (Phase 2): switch to noodles lazy record reader so only the fields touched
-by the expression are parsed. This should close the gap substantially.
+1. **Read raw lines** with `BufRead::read_line` into a reusable `String` buffer — no per-record allocation.
+2. **Lazy field access** via `FastRecord`, which holds `&str` slices into the line buffer. Only the fields referenced by the expression are parsed.
+3. **Pass-through writes** — matching records are written as raw bytes without re-serialization through noodles.
+4. **INFO metadata** from the header (field types, Number=A/R/G) is extracted once before the loop and reused.
 
-Correctness is verified: both tools produce identical variant counts on the same input.
+bcftools (htslib) parses VCF lazily in C with field offsets. vcfkit's fast path does the same in Rust.
+
+Correctness is validated: both tools produce identical variant counts on the same input (910,425 of 1,103,547 variants with AF < 0.01 on chr22).
 
 ---
 

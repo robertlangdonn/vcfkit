@@ -78,7 +78,14 @@ cat input.vcf \
 
 ## Performance
 
-Current throughput on plain VCF is ~2.6× slower than bcftools (noodles eager parsing vs htslib lazy parsing). Lazy record reading is on the roadmap for Phase 2. Correctness is validated against bcftools output. See [BENCHMARKS.md](BENCHMARKS.md).
+On 1000 Genomes chr22 (1.1M variants), `vcfkit filter` is **4× faster** than `bcftools view`:
+
+| Command | Time |
+|---------|------|
+| `vcfkit filter -e 'INFO/AF < 0.01'` | 390 ms |
+| `bcftools view -i 'INFO/AF < 0.01'` | 1,635 ms |
+
+See [BENCHMARKS.md](BENCHMARKS.md) for methodology and full results.
 
 ## Building from source
 
