@@ -49,7 +49,7 @@ pub fn is_compressed_path(path: &Path) -> bool {
 // ── Magic-byte detection ──────────────────────────────────────────────────────
 
 /// BCF magic bytes (first 4 bytes of every BCF file).
-const BCF_MAGIC: &[u8; 4] = b"BCF\x02";
+const BCF_MAGIC: [u8; 4] = *b"BCF\x02";
 
 /// Peek at the first four bytes of `reader` to determine the format.
 ///
@@ -59,16 +59,18 @@ const BCF_MAGIC: &[u8; 4] = b"BCF\x02";
 /// peeked bytes.
 pub fn detect_format_from_magic(reader: &mut impl Read) -> io::Result<OutputFormat> {
     let mut magic = [0u8; 4];
-    match reader.read(&mut magic) {
-        Ok(0) => Ok(OutputFormat::Vcf), // empty → treat as VCF
-        Ok(_) => {
-            if magic == *BCF_MAGIC {
-                Ok(OutputFormat::Bcf)
-            } else {
-                Ok(OutputFormat::Vcf)
-            }
+    match reader.read_exact(&mut magic) {
+        Ok(()) => {}
+        Err(e) if e.kind() == std::io::ErrorKind::UnexpectedEof => {
+            // File is shorter than 4 bytes — treat as VCF.
+            return Ok(OutputFormat::Vcf);
         }
-        Err(e) => Err(e),
+        Err(e) => return Err(e),
+    }
+    if magic == BCF_MAGIC {
+        Ok(OutputFormat::Bcf)
+    } else {
+        Ok(OutputFormat::Vcf)
     }
 }
 
@@ -92,6 +94,9 @@ impl VcfReader {
             VcfReader::Bcf(r) => r.read_header(),
         }
     }
+
+    // TODO: add a `read_record` method once the normalize, liftover, and
+    // filter modules are implemented and a shared record type is established.
 }
 
 // ── VcfWriter enum ────────────────────────────────────────────────────────────
@@ -114,6 +119,9 @@ impl VcfWriter {
             VcfWriter::Bcf(w) => w.write_header(header),
         }
     }
+
+    // TODO: add a `write_record` method once the normalize, liftover, and
+    // filter modules are implemented and a shared record type is established.
 }
 
 // ── open_vcf ──────────────────────────────────────────────────────────────────
@@ -146,13 +154,16 @@ pub fn open_vcf(path: Option<&Path>) -> anyhow::Result<VcfReader> {
             let mut buf_stdin = BufReader::new(stdin.lock());
 
             // Peek the first 4 bytes.
+            // Note: `consume()` is intentionally NOT called after `fill_buf`.
+            // The magic bytes remain in the `BufReader` buffer so that noodles
+            // can re-read them as part of the normal header/record parsing.
             let peeked = {
                 let bytes = buf_stdin.fill_buf()?;
                 let len = bytes.len().min(4);
                 bytes[..len].to_vec()
             };
 
-            let fmt = if peeked.len() == 4 && peeked[..] == *BCF_MAGIC {
+            let fmt = if peeked.len() == 4 && peeked[..] == BCF_MAGIC {
                 OutputFormat::Bcf
             } else {
                 OutputFormat::Vcf
