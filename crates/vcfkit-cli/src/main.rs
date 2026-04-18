@@ -1,7 +1,3 @@
-mod commands;
-mod output;
-mod telemetry;
-
 use std::io;
 use std::path::PathBuf;
 
@@ -23,7 +19,7 @@ pub struct Cli {
     pub verbose: u8,
 
     /// Suppress non-error output
-    #[arg(short, long, global = true)]
+    #[arg(short, long, global = true, conflicts_with = "verbose")]
     pub quiet: bool,
 
     /// Disable telemetry for this run
@@ -147,9 +143,9 @@ pub struct LiftoverArgs {
 
 #[derive(Debug, Parser)]
 pub struct FilterArgs {
-    /// Filter expression (required unless --list-fields)
-    #[arg(short = 'e', long, value_name = "EXPR")]
-    pub expression: Option<String>,
+    /// Filter expression (required)
+    #[arg(short = 'e', long, value_name = "EXPR", required = true)]
+    pub expression: String,
 
     /// Keep variants NOT matching the expression
     #[arg(short = 'v', long)]
