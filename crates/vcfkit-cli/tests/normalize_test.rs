@@ -74,6 +74,37 @@ fn default_opts() -> NormalizeOptions {
     }
 }
 
+/// Filter a VCF byte slice to only include records whose CHROM is present in
+/// the given reference FASTA index. This is needed for differential tests where
+/// the test fixtures contain chromosomes not present in `mini_ref.fa` — bcftools
+/// hard-errors on missing chromosomes even when `-c w` is set.
+fn filter_to_ref_chroms(input: &[u8], fai_path: &Path) -> Vec<u8> {
+    // Parse chromosome names from the .fai file (first column of each line).
+    let fai = fs::read_to_string(fai_path)
+        .unwrap_or_else(|e| panic!("failed to read {}: {e}", fai_path.display()));
+    let ref_chroms: std::collections::HashSet<&str> = fai
+        .lines()
+        .filter_map(|l| l.split('\t').next())
+        .collect();
+
+    let src = std::str::from_utf8(input).expect("VCF is valid UTF-8");
+    let mut out = Vec::new();
+    for line in src.lines() {
+        if line.starts_with('#') {
+            // Always keep header lines.
+            out.extend_from_slice(line.as_bytes());
+            out.push(b'\n');
+        } else {
+            let chrom = line.split('\t').next().unwrap_or("");
+            if ref_chroms.contains(chrom) {
+                out.extend_from_slice(line.as_bytes());
+                out.push(b'\n');
+            }
+        }
+    }
+    out
+}
+
 /// True if `bcftools` is on `PATH`. Evaluated at test runtime.
 fn bcftools_available() -> bool {
     Command::new("bcftools")
@@ -579,9 +610,11 @@ fn diff_basic_vcf_matches_bcftools_norm() {
         eprintln!("skipping: bcftools not installed");
         return;
     }
-    let input = read_corpus("basic.vcf");
+    let ref_fa = reference_fa();
+    let fai = ref_fa.with_extension("fa.fai");
+    let input = filter_to_ref_chroms(&read_corpus("basic.vcf"), &fai);
     let (actual, _) = run_normalize(&input, default_opts());
-    let expected = run_bcftools_norm(&input, &reference_fa(), &["-m", "-any"]);
+    let expected = run_bcftools_norm(&input, &ref_fa, &["-m", "-any", "-c", "w"]);
     assert_vcf_eq(&expected, &actual);
 }
 
@@ -592,14 +625,16 @@ fn diff_multi_allelic_split_matches_bcftools_norm() {
         eprintln!("skipping: bcftools not installed");
         return;
     }
-    let input = read_corpus("multi_allelic.vcf");
+    let ref_fa = reference_fa();
+    let fai = ref_fa.with_extension("fa.fai");
+    let input = filter_to_ref_chroms(&read_corpus("multi_allelic.vcf"), &fai);
     let opts = NormalizeOptions {
         split_multiallelics: true,
         left_align: false,
         ..default_opts()
     };
     let (actual, _) = run_normalize(&input, opts);
-    let expected = run_bcftools_norm(&input, &reference_fa(), &["-m", "-any"]);
+    let expected = run_bcftools_norm(&input, &ref_fa, &["-m", "-any", "-c", "w"]);
     assert_vcf_eq(&expected, &actual);
 }
 

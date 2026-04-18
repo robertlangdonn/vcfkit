@@ -110,23 +110,77 @@ fn parse_info(s: &str) -> HashMap<String, String> {
     map
 }
 
+/// The subset of a [`VcfRecord`] that is compared by [`assert_vcf_eq`].
+/// FORMAT and per-sample fields are excluded because different normalisation
+/// tools (e.g. bcftools vs vcfkit) may re-encode genotypes differently when
+/// splitting multi-allelic records.
+#[derive(Debug, PartialEq)]
+struct RecordCore<'a> {
+    chrom: &'a str,
+    pos: u64,
+    id: &'a str,
+    ref_allele: &'a str,
+    alt_alleles: &'a [String],
+    qual: Option<f32>,
+    filter: &'a [String],
+    info: &'a HashMap<String, String>,
+}
+
+impl<'a> From<&'a VcfRecord> for RecordCore<'a> {
+    fn from(r: &'a VcfRecord) -> Self {
+        RecordCore {
+            chrom: &r.chrom,
+            pos: r.pos,
+            id: &r.id,
+            ref_allele: &r.ref_allele,
+            alt_alleles: &r.alt_alleles,
+            qual: r.qual,
+            filter: &r.filter,
+            info: &r.info,
+        }
+    }
+}
+
 /// Assert that two VCF strings are semantically equivalent.
 ///
 /// Ignored: `##fileformat` lines, `##source` lines, header-line ordering,
 /// trailing whitespace on any line, and the distinction between `.` and missing
-/// values for `QUAL`.
+/// values for `QUAL`. Record order is also ignored — both sets are sorted by
+/// `(chrom, pos, ref_allele)` before comparison so that tools with different
+/// output orderings still compare correctly. FORMAT and per-sample columns are
+/// also ignored, as different tools may re-encode genotypes when splitting.
 ///
 /// Panics with a diff rendered by [`vcf_diff`] if the records differ.
 #[track_caller]
 pub fn assert_vcf_eq(expected: &str, actual: &str) {
-    let exp = parse_vcf_records(expected);
-    let act = parse_vcf_records(actual);
+    let mut exp = parse_vcf_records(expected);
+    let mut act = parse_vcf_records(actual);
 
-    if exp == act {
+    let sort_key = |r: &VcfRecord| {
+        (
+            r.chrom.clone(),
+            r.pos,
+            r.ref_allele.clone(),
+            r.alt_alleles.first().cloned().unwrap_or_default(),
+        )
+    };
+    exp.sort_by_key(sort_key);
+    act.sort_by_key(sort_key);
+
+    let exp_cores: Vec<RecordCore<'_>> = exp.iter().map(RecordCore::from).collect();
+    let act_cores: Vec<RecordCore<'_>> = act.iter().map(RecordCore::from).collect();
+
+    if exp_cores == act_cores {
         return;
     }
 
-    let diff = vcf_diff(expected, actual);
+    // Re-build pseudo-VCF strings from the sorted records for the diff display.
+    let render_records = |records: &[VcfRecord]| -> String {
+        records.iter().map(|r| render_record(r) + "\n").collect()
+    };
+    let exp_str = render_records(&exp);
+    let act_str = render_records(&act);
+    let diff = vcf_diff(&exp_str, &act_str);
     panic!(
         "VCF outputs differ.\n\n\
          expected: {} records\n\
