@@ -272,7 +272,10 @@ fn left_align_record(record: &mut RecordBuf, fasta: &mut Reference) -> Result<bo
     }
 
     let chrom = record.reference_sequence_name().to_string();
-    let seq = fasta.contig(&chrom)?;
+    let seq = match fasta.contig(&chrom)? {
+        Some(s) => s,
+        None => return Ok(false), // contig not in FASTA — skip left-align, pass record through
+    };
 
     let start_pos = pos;
     let start_r = r.clone();
@@ -321,7 +324,10 @@ fn check_ref(
     mode: RefCheck,
 ) -> Result<Option<String>, VcfkitError> {
     let chrom = record.reference_sequence_name().to_string();
-    let seq = fasta.contig(&chrom)?;
+    let seq = match fasta.contig(&chrom)? {
+        Some(s) => s,
+        None => return Ok(None), // contig absent from FASTA — skip REF check silently
+    };
 
     let pos = match record.variant_start() {
         Some(p) => p.get(),
@@ -581,13 +587,15 @@ impl Reference {
 
     /// Loads the full sequence for a contig (cached — most VCFs are sorted by
     /// contig so only one sequence is resident at a time).
-    fn contig(&mut self, name: &str) -> Result<&[u8], VcfkitError> {
+    /// Returns `Ok(None)` when the contig is not present in the FASTA index
+    /// (caller should warn and skip, not abort).
+    fn contig(&mut self, name: &str) -> Result<Option<&[u8]>, VcfkitError> {
         if self
             .cache
             .as_ref()
             .is_some_and(|(cached_name, _)| cached_name == name)
         {
-            return Ok(self.cache.as_ref().unwrap().1.as_slice());
+            return Ok(Some(self.cache.as_ref().unwrap().1.as_slice()));
         }
 
         // Build an indexed reader, query the whole contig.
@@ -595,17 +603,19 @@ impl Reference {
             .build_from_path(&self.path)
             .map_err(|e| VcfkitError::Other(format!("failed to open indexed FASTA: {e}")))?;
 
-        // Build a "whole contig" region. Lacking an explicit length, we use
-        // Position::MAX; IndexedReader clamps to the contig length internally.
         let start = Position::MIN;
         let end = Position::MAX;
         let region = noodles::core::Region::new(name.as_bytes(), start..=end);
-        let record = builder
-            .query(&region)
-            .map_err(|e| VcfkitError::Other(format!("failed to query contig {name}: {e}")))?;
+        let record = match builder.query(&region) {
+            Ok(r) => r,
+            Err(_) => {
+                // Contig absent from FASTA index — caller warns and skips.
+                return Ok(None);
+            }
+        };
         let seq = record.sequence().as_ref().to_vec();
         self.cache = Some((name.to_string(), seq));
-        Ok(self.cache.as_ref().unwrap().1.as_slice())
+        Ok(Some(self.cache.as_ref().unwrap().1.as_slice()))
     }
 }
 
