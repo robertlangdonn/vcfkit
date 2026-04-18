@@ -133,8 +133,15 @@ fn run_core(
     options: LiftoverOptions,
 ) -> (String, LiftoverStats) {
     let mut out = Vec::new();
-    let stats = liftover(input, &mut out, chain_path, source_ref, target_ref, options)
-        .expect("liftover ok");
+    let stats = liftover(
+        input,
+        &mut out,
+        chain_path,
+        source_ref,
+        Some(target_ref),
+        options,
+    )
+    .expect("liftover ok");
     (String::from_utf8(out).expect("utf-8"), stats)
 }
 

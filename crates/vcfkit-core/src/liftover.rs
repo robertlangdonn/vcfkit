@@ -29,6 +29,8 @@ use std::{
     path::{Path, PathBuf},
 };
 
+use flate2::read::MultiGzDecoder;
+
 use noodles::{
     core::Position,
     fasta,
@@ -160,11 +162,23 @@ impl ChainIndex {
     }
 
     /// Parse a UCSC chain file from a filesystem path.
+    ///
+    /// Files ending with `.gz` are automatically decompressed via
+    /// [`MultiGzDecoder`]. Plain (uncompressed) chain files are read directly.
     pub fn from_path(path: &Path) -> Result<Self, VcfkitError> {
         let file = File::open(path).map_err(|e| {
             VcfkitError::Other(format!("failed to open chain file {}: {e}", path.display()))
         })?;
-        Self::from_reader(BufReader::new(file))
+        let is_gzip = path
+            .extension()
+            .and_then(|e| e.to_str())
+            .map(|e| e.eq_ignore_ascii_case("gz"))
+            .unwrap_or(false);
+        if is_gzip {
+            Self::from_reader(BufReader::new(MultiGzDecoder::new(file)))
+        } else {
+            Self::from_reader(BufReader::new(file))
+        }
     }
 
     /// Look up the block covering the 0-based source position, if any.
@@ -379,7 +393,8 @@ fn single_char(s: &str, field: &str, lineno: usize) -> Result<char, VcfkitError>
 ///   sanity-check REF before lifting. Pass `/dev/null` style path only if REF
 ///   validation is not desired (it still must exist for [`Reference::open`]).
 /// * `target_ref_path` — FASTA+FAI for the target (post-lift) build. Used to
-///   validate that the lifted REF matches the target reference.
+///   validate that the lifted REF matches the target reference. Pass `None` to
+///   skip target REF validation entirely.
 ///
 /// Records that cannot be mapped are either silently dropped (default) or
 /// written to `options.reject_file` with the original coordinates.
@@ -388,7 +403,7 @@ pub fn liftover<R: BufRead, W: Write>(
     writer: W,
     chain_path: &Path,
     source_ref_path: &Path,
-    target_ref_path: &Path,
+    target_ref_path: Option<&Path>,
     options: LiftoverOptions,
 ) -> Result<LiftoverStats, VcfkitError> {
     liftover_with_progress(
@@ -409,7 +424,7 @@ pub fn liftover_with_progress<R, W, F>(
     writer: W,
     chain_path: &Path,
     source_ref_path: &Path,
-    target_ref_path: &Path,
+    target_ref_path: Option<&Path>,
     options: LiftoverOptions,
     mut on_record: F,
 ) -> Result<LiftoverStats, VcfkitError>
@@ -425,7 +440,7 @@ where
     // we don't currently use it — the target reference is the authoritative
     // validation surface. Open if present.
     let _src_fa = Reference::open(source_ref_path).ok();
-    let mut tgt_fa = Reference::open(target_ref_path).ok();
+    let mut tgt_fa = target_ref_path.and_then(|p| Reference::open(p).ok());
 
     let mut vcf_reader = vcf::io::Reader::new(reader);
     let mut header = vcf_reader

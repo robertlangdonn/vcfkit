@@ -648,6 +648,286 @@ chr1\t999999\t.\tA\tG\t50\tPASS\t.\tGT\t0/1\n";
     );
 }
 
+// ── Number=G INFO field slicing ───────────────────────────────────────────────
+
+/// For a diploid triallelic site (alleles REF/ALT1/ALT2) the G-ordered values
+/// are indexed as: 0→0/0, 1→0/1, 2→1/1, 3→0/2, 4→1/2, 5→2/2.
+///
+/// Splitting on ALT1 (k=1) should keep indices [0,1,2] → values for 0/0, 0/1, 1/1.
+/// Splitting on ALT2 (k=2) should keep indices [0,3,5] → values for 0/0, 0/2, 2/2.
+#[test]
+fn split_preserves_number_g_slicing() {
+    // Inline triallelic VCF with a GL field (Number=G, Type=Float).
+    // Alleles: REF=A, ALT1=T, ALT2=G. GL values for 3 alleles → 6 values:
+    //   g(0/0)=-0.5, g(0/1)=-1.0, g(1/1)=-2.0, g(0/2)=-1.5, g(1/2)=-3.0, g(2/2)=-4.0
+    let input: &[u8] = b"\
+##fileformat=VCFv4.2\n\
+##FILTER=<ID=PASS,Description=\"All filters passed\">\n\
+##contig=<ID=chr1,length=120>\n\
+##INFO=<ID=GL,Number=G,Type=Float,Description=\"Genotype Likelihoods\">\n\
+##FORMAT=<ID=GT,Number=1,Type=String,Description=\"Genotype\">\n\
+#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\tFORMAT\tSAMPLE1\n\
+chr1\t10\t.\tA\tT,G\t50\tPASS\tGL=-0.5,-1.0,-2.0,-1.5,-3.0,-4.0\tGT\t0/1\n";
+
+    let opts = NormalizeOptions {
+        split_multiallelics: true,
+        left_align: false,
+        check_ref: RefCheck::Ignore,
+        output_format: OutputFormat::Vcf,
+    };
+    let (out, stats) = run_normalize(input, opts);
+    assert_eq!(stats.input_records, 1);
+    assert_eq!(stats.output_records, 2);
+    assert_eq!(stats.split_sites, 1);
+
+    let records = parse_vcf_records(&out);
+    assert_eq!(records.len(), 2);
+
+    // ALT1 (T) → keep g-indices [0,1,2]: values -0.5, -1.0, -2.0
+    assert_eq!(
+        records[0].alt_alleles,
+        vec!["T".to_string()],
+        "first split record must have ALT=T"
+    );
+    let gl_t = records[0]
+        .info
+        .get("GL")
+        .expect("GL must be present in first split record");
+    assert_eq!(
+        gl_t, "-0.5,-1,-2",
+        "Number=G split for ALT1 must keep indices [0,1,2]"
+    );
+
+    // ALT2 (G) → keep g-indices [0,3,5]: values -0.5, -1.5, -4.0
+    assert_eq!(
+        records[1].alt_alleles,
+        vec!["G".to_string()],
+        "second split record must have ALT=G"
+    );
+    let gl_g = records[1]
+        .info
+        .get("GL")
+        .expect("GL must be present in second split record");
+    assert_eq!(
+        gl_g, "-0.5,-1.5,-4",
+        "Number=G split for ALT2 must keep indices [0,3,5]"
+    );
+}
+
+// ── Number=. (variable) and Flag INFO pass-through ───────────────────────────
+
+/// INFO fields with `Number=.` (unknown/variable count) must be copied verbatim
+/// to every split record — the implementation must not attempt to slice them.
+#[test]
+fn split_passes_through_number_dot_info() {
+    // CSQV is a fictional Number=. field that carries a |-delimited annotation.
+    let input: &[u8] = b"\
+##fileformat=VCFv4.2\n\
+##FILTER=<ID=PASS,Description=\"All filters passed\">\n\
+##contig=<ID=chr1,length=120>\n\
+##INFO=<ID=AF,Number=A,Type=Float,Description=\"Allele Frequency\">\n\
+##INFO=<ID=CSQV,Number=.,Type=String,Description=\"Variable annotation\">\n\
+##FORMAT=<ID=GT,Number=1,Type=String,Description=\"Genotype\">\n\
+#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\tFORMAT\tSAMPLE1\n\
+chr1\t10\t.\tA\tT,G\t50\tPASS\tAF=0.3,0.2;CSQV=foo|bar|baz\tGT\t0/1\n";
+
+    let opts = NormalizeOptions {
+        split_multiallelics: true,
+        left_align: false,
+        check_ref: RefCheck::Ignore,
+        output_format: OutputFormat::Vcf,
+    };
+    let (out, stats) = run_normalize(input, opts);
+    assert_eq!(stats.output_records, 2);
+
+    let records = parse_vcf_records(&out);
+    assert_eq!(records.len(), 2);
+
+    // Number=. field must be copied unchanged to both split records.
+    for (i, rec) in records.iter().enumerate() {
+        let csqv = rec
+            .info
+            .get("CSQV")
+            .unwrap_or_else(|| panic!("CSQV missing from split record {i}"));
+        assert_eq!(
+            csqv, "foo|bar|baz",
+            "Number=. CSQV must be copied verbatim to split record {i}"
+        );
+    }
+
+    // Number=A field still sliced correctly alongside the dot field.
+    assert_eq!(
+        records[0].info.get("AF").map(|s| s.as_str()),
+        Some("0.3"),
+        "AF for ALT1 must be 0.3"
+    );
+    assert_eq!(
+        records[1].info.get("AF").map(|s| s.as_str()),
+        Some("0.2"),
+        "AF for ALT2 must be 0.2"
+    );
+}
+
+/// Flag INFO entries (no `=value`, `Type=Flag`) must be preserved on every
+/// split record because they describe the site, not a specific allele.
+#[test]
+fn split_preserves_flag_info_fields() {
+    let input: &[u8] = b"\
+##fileformat=VCFv4.2\n\
+##FILTER=<ID=PASS,Description=\"All filters passed\">\n\
+##contig=<ID=chr1,length=120>\n\
+##INFO=<ID=AF,Number=A,Type=Float,Description=\"Allele Frequency\">\n\
+##INFO=<ID=DB,Number=0,Type=Flag,Description=\"dbSNP membership\">\n\
+##FORMAT=<ID=GT,Number=1,Type=String,Description=\"Genotype\">\n\
+#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\tFORMAT\tSAMPLE1\n\
+chr1\t10\t.\tA\tT,G\t50\tPASS\tAF=0.3,0.2;DB\tGT\t0/1\n";
+
+    let opts = NormalizeOptions {
+        split_multiallelics: true,
+        left_align: false,
+        check_ref: RefCheck::Ignore,
+        output_format: OutputFormat::Vcf,
+    };
+    let (out, stats) = run_normalize(input, opts);
+    assert_eq!(stats.output_records, 2);
+
+    let records = parse_vcf_records(&out);
+    assert_eq!(records.len(), 2);
+
+    for (i, rec) in records.iter().enumerate() {
+        assert!(
+            rec.info.contains_key("DB"),
+            "Flag INFO field DB must be present in split record {i}"
+        );
+    }
+}
+
+// ── FORMAT Number=A and Number=R slicing ────────────────────────────────────
+
+/// FORMAT fields with `Number=A` must be re-sliced to a single value for the
+/// ALT allele of each split record, mirroring the INFO Number=A logic.
+#[test]
+fn split_preserves_format_number_a_slicing() {
+    // VAF is a per-sample allele frequency — one value per ALT.
+    let input: &[u8] = b"\
+##fileformat=VCFv4.2\n\
+##FILTER=<ID=PASS,Description=\"All filters passed\">\n\
+##contig=<ID=chr1,length=120>\n\
+##INFO=<ID=DP,Number=1,Type=Integer,Description=\"Depth\">\n\
+##FORMAT=<ID=GT,Number=1,Type=String,Description=\"Genotype\">\n\
+##FORMAT=<ID=VAF,Number=A,Type=Float,Description=\"Variant Allele Frequency\">\n\
+#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\tFORMAT\tSAMPLE1\n\
+chr1\t10\t.\tA\tT,G\t50\tPASS\tDP=100\tGT:VAF\t0/1:0.35,0.15\n";
+
+    let opts = NormalizeOptions {
+        split_multiallelics: true,
+        left_align: false,
+        check_ref: RefCheck::Ignore,
+        output_format: OutputFormat::Vcf,
+    };
+    let (out, stats) = run_normalize(input, opts);
+    assert_eq!(stats.output_records, 2);
+
+    let records = parse_vcf_records(&out);
+    assert_eq!(records.len(), 2);
+
+    // Extract the VAF value from the sample column (FORMAT is GT:VAF).
+    // samples[0] is the raw string e.g. "0/1:0.35".
+    let vaf_for = |rec: &crate::common::diff::VcfRecord| -> String {
+        let fmt = rec.format.as_deref().unwrap_or("");
+        let sample = rec.samples.first().map(|s| s.as_str()).unwrap_or("");
+        let fmt_fields: Vec<&str> = fmt.split(':').collect();
+        let smp_fields: Vec<&str> = sample.split(':').collect();
+        let vaf_pos = fmt_fields
+            .iter()
+            .position(|&k| k == "VAF")
+            .expect("VAF in FORMAT");
+        smp_fields
+            .get(vaf_pos)
+            .map(|s| s.to_string())
+            .expect("VAF value present")
+    };
+
+    assert_eq!(
+        records[0].alt_alleles,
+        vec!["T".to_string()],
+        "first split record must have ALT=T"
+    );
+    assert_eq!(
+        vaf_for(&records[0]),
+        "0.35",
+        "FORMAT VAF for ALT1 must be 0.35 (Number=A sliced to first element)"
+    );
+
+    assert_eq!(
+        records[1].alt_alleles,
+        vec!["G".to_string()],
+        "second split record must have ALT=G"
+    );
+    assert_eq!(
+        vaf_for(&records[1]),
+        "0.15",
+        "FORMAT VAF for ALT2 must be 0.15 (Number=A sliced to second element)"
+    );
+}
+
+/// FORMAT fields with `Number=R` must keep the REF value plus the allele-specific
+/// value for the split ALT. This mirrors multi_allelic.vcf FORMAT AD Number=R.
+#[test]
+fn split_preserves_format_number_r_slicing() {
+    // AD (Number=R) for a biallelic site: REF=50, ALT1=30, ALT2=20.
+    // After splitting:
+    //   record for ALT1 → AD = 50,30 (REF + ALT1)
+    //   record for ALT2 → AD = 50,20 (REF + ALT2)
+    let input: &[u8] = b"\
+##fileformat=VCFv4.2\n\
+##FILTER=<ID=PASS,Description=\"All filters passed\">\n\
+##contig=<ID=chr1,length=120>\n\
+##INFO=<ID=DP,Number=1,Type=Integer,Description=\"Depth\">\n\
+##FORMAT=<ID=GT,Number=1,Type=String,Description=\"Genotype\">\n\
+##FORMAT=<ID=AD,Number=R,Type=Integer,Description=\"Allele Depth\">\n\
+#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\tFORMAT\tSAMPLE1\n\
+chr1\t10\t.\tA\tT,G\t50\tPASS\tDP=100\tGT:AD\t0/1:50,30,20\n";
+
+    let opts = NormalizeOptions {
+        split_multiallelics: true,
+        left_align: false,
+        check_ref: RefCheck::Ignore,
+        output_format: OutputFormat::Vcf,
+    };
+    let (out, stats) = run_normalize(input, opts);
+    assert_eq!(stats.output_records, 2);
+
+    let records = parse_vcf_records(&out);
+    assert_eq!(records.len(), 2);
+
+    let ad_for = |rec: &crate::common::diff::VcfRecord| -> String {
+        let fmt = rec.format.as_deref().unwrap_or("");
+        let sample = rec.samples.first().map(|s| s.as_str()).unwrap_or("");
+        let fmt_fields: Vec<&str> = fmt.split(':').collect();
+        let smp_fields: Vec<&str> = sample.split(':').collect();
+        let ad_pos = fmt_fields
+            .iter()
+            .position(|&k| k == "AD")
+            .expect("AD in FORMAT");
+        smp_fields
+            .get(ad_pos)
+            .map(|s| s.to_string())
+            .expect("AD value present")
+    };
+
+    assert_eq!(
+        ad_for(&records[0]),
+        "50,30",
+        "FORMAT AD for ALT1 must be REF+ALT1 = 50,30"
+    );
+    assert_eq!(
+        ad_for(&records[1]),
+        "50,20",
+        "FORMAT AD for ALT2 must be REF+ALT2 = 50,20"
+    );
+}
+
 // ── differential tests against bcftools norm ─────────────────────────────────
 //
 // These are marked `#[ignore]` because `bcftools` is not guaranteed to be on

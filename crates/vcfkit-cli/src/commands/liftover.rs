@@ -7,6 +7,7 @@ use std::{
 };
 
 use anyhow::Context;
+use tracing::warn;
 
 use vcfkit_core::{
     io::OutputFormat,
@@ -30,17 +31,14 @@ pub fn run(args: &LiftoverArgs, quiet: bool) -> anyhow::Result<()> {
         return Ok(());
     }
 
-    // After the early-return above, these three are guaranteed present by
-    // clap's required_unless_present attributes. Failing here would indicate
-    // a CLI schema bug.
+    // After the early-return above, source_ref and chain are guaranteed
+    // present by clap's required_unless_present attributes. target_ref is
+    // fully optional.
     let source_ref = args
         .source_ref
         .as_deref()
         .context("internal: --source-ref missing after list_chains check")?;
-    let target_ref = args
-        .target_ref
-        .as_deref()
-        .context("internal: --target-ref missing after list_chains check")?;
+    let target_ref = args.target_ref.as_deref();
     let chain_path = args
         .chain
         .as_deref()
@@ -52,11 +50,15 @@ pub fn run(args: &LiftoverArgs, quiet: bool) -> anyhow::Result<()> {
             source_ref.display()
         ));
     }
-    if !target_ref.exists() {
-        return Err(anyhow::anyhow!(
-            "failed to load reference FASTA '{}': file not found",
-            target_ref.display()
-        ));
+    if let Some(tref) = target_ref {
+        if !tref.exists() {
+            return Err(anyhow::anyhow!(
+                "failed to load reference FASTA '{}': file not found",
+                tref.display()
+            ));
+        }
+    } else {
+        warn!("no target reference provided — REF alleles will not be validated after liftover");
     }
     if !chain_path.exists() {
         return Err(anyhow::anyhow!(

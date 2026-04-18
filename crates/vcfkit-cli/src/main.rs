@@ -127,13 +127,9 @@ pub struct LiftoverArgs {
     )]
     pub source_ref: Option<PathBuf>,
 
-    /// Target reference genome (required unless --list-chains)
-    #[arg(
-        short = 't',
-        long,
-        value_name = "FASTA",
-        required_unless_present = "list_chains"
-    )]
+    /// Target reference genome (optional; when omitted REF alleles are not
+    /// validated against the target build after liftover)
+    #[arg(short = 't', long, value_name = "FASTA")]
     pub target_ref: Option<PathBuf>,
 
     /// Chain file (required unless --list-chains)

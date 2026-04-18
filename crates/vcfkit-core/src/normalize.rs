@@ -8,6 +8,7 @@
 //! allele; `Number=1/./0` are copied verbatim).
 
 use std::{
+    collections::HashSet,
     fs::File,
     io::{BufRead, Write},
     path::{Path, PathBuf},
@@ -562,6 +563,8 @@ fn pick<T: Clone>(xs: &[Option<T>], indices: &[usize]) -> Vec<Option<T>> {
 struct Reference {
     path: PathBuf,
     cache: Option<(String, Vec<u8>)>,
+    /// Contigs confirmed absent from the FASTA index — avoids redundant file opens.
+    absent_contigs: HashSet<String>,
 }
 
 impl Reference {
@@ -574,15 +577,17 @@ impl Reference {
         let mut with_fai = fai_path.as_os_str().to_os_string();
         with_fai.push(".fai");
         fai_path = PathBuf::from(with_fai);
-        let _ = File::open(&fai_path).map_err(|e| {
+        let _ = File::open(&fai_path).map_err(|_| {
             VcfkitError::Other(format!(
-                "failed to open reference index {}: {e}",
-                fai_path.display()
+                "reference index not found: {}\nhint: create it with `samtools faidx {}`",
+                fai_path.display(),
+                path.display()
             ))
         })?;
         Ok(Self {
             path: path.to_path_buf(),
             cache: None,
+            absent_contigs: HashSet::new(),
         })
     }
 
@@ -591,6 +596,11 @@ impl Reference {
     /// Returns `Ok(None)` when the contig is not present in the FASTA index
     /// (caller should warn and skip, not abort).
     fn contig(&mut self, name: &str) -> Result<Option<&[u8]>, VcfkitError> {
+        // Fast path: contig previously confirmed absent — skip filesystem entirely.
+        if self.absent_contigs.contains(name) {
+            return Ok(None);
+        }
+
         if self
             .cache
             .as_ref()
@@ -610,7 +620,15 @@ impl Reference {
         let record = match builder.query(&region) {
             Ok(r) => r,
             Err(_) => {
-                // Contig absent from FASTA index — caller warns and skips.
+                // Contig absent from FASTA index — record it so future lookups are O(1).
+                // Emit the warning only on the first miss for each contig.
+                if self.absent_contigs.insert(name.to_string()) {
+                    tracing::warn!(
+                        contig = name,
+                        "contig \"{}\" not found in reference FASTA — skipping normalization for this contig",
+                        name
+                    );
+                }
                 return Ok(None);
             }
         };

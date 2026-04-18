@@ -111,7 +111,7 @@ fn bench_liftover(c: &mut Criterion) {
                 &mut output,
                 black_box(&chain_path),
                 black_box(&src_fa_path),
-                black_box(&tgt_fa_path),
+                Some(black_box(tgt_fa_path.as_path())),
                 LiftoverOptions::default(),
             )
             .unwrap()
