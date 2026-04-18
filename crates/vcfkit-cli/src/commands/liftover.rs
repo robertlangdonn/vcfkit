@@ -76,6 +76,7 @@ pub fn run(args: &LiftoverArgs, quiet: bool) -> anyhow::Result<()> {
             .as_deref()
             .map(vcfkit_core::io::format_from_path)
             .unwrap_or(OutputFormat::Vcf),
+        allow_contig_mismatch: args.allow_contig_mismatch,
     };
 
     let reporter = ProgressReporter::new_with_flags(None, quiet, args.no_progress);

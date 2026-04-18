@@ -747,3 +747,71 @@ fn multi_block_neg_strand_tgt_cursor_advances_correctly() {
         "rev_comp(A) = T"
     );
 }
+
+// ── contig name mismatch detection ───────────────────────────────────────────
+
+#[test]
+fn b37_vcf_plus_ucsc_chain_is_detected_and_fails() {
+    // VCF uses b37 contig names ("1"), chain uses UCSC ("chr1").
+    // Liftover should fail with a helpful error message.
+    let dir = scratch_dir("contig-mismatch");
+    let seq = cycle_acgt(200);
+    let src_fa = write_mini_fasta(&dir, "src.fa", &[("chr1", &seq)]);
+    let tgt_fa = write_mini_fasta(&dir, "tgt.fa", &[("chr1", &seq)]);
+
+    // Chain: chr1 (UCSC-style)
+    let chain = b"chain 1000 chr1 200 + 0 100 chr1 200 + 100 200 1\n100\n\n";
+    let chain_path = write_file(&dir, "ucsc.chain", chain);
+
+    // VCF: contig "1" (b37-style)
+    let input = make_vcf(&[("1", 50, "A", "T")], &[("1", 200)]);
+
+    let mut out = Vec::new();
+    let result = liftover(
+        input.as_slice(),
+        &mut out,
+        &chain_path,
+        &src_fa,
+        Some(&tgt_fa),
+        LiftoverOptions::default(),
+    );
+
+    assert!(result.is_err(), "should fail with contig mismatch");
+    let err = result.unwrap_err().to_string();
+    assert!(
+        err.contains("contig name mismatch") && err.contains("b37"),
+        "error should mention 'contig name mismatch' and 'b37', got: {err}"
+    );
+    assert!(
+        err.contains("--allow-contig-mismatch"),
+        "error should mention --allow-contig-mismatch, got: {err}"
+    );
+}
+
+#[test]
+fn allow_contig_mismatch_suppresses_error_and_rejects_all() {
+    let dir = scratch_dir("contig-mismatch-allow");
+    let seq = cycle_acgt(200);
+    let src_fa = write_mini_fasta(&dir, "src.fa", &[("chr1", &seq)]);
+    let tgt_fa = write_mini_fasta(&dir, "tgt.fa", &[("chr1", &seq)]);
+
+    let chain = b"chain 1000 chr1 200 + 0 100 chr1 200 + 100 200 1\n100\n\n";
+    let chain_path = write_file(&dir, "ucsc.chain", chain);
+
+    let input = make_vcf(&[("1", 50, "A", "T")], &[("1", 200)]);
+
+    let mut out = Vec::new();
+    let stats = liftover(
+        input.as_slice(),
+        &mut out,
+        &chain_path,
+        &src_fa,
+        Some(&tgt_fa),
+        LiftoverOptions { allow_contig_mismatch: true, ..LiftoverOptions::default() },
+    )
+    .expect("should succeed with allow_contig_mismatch=true");
+
+    assert_eq!(stats.input_records, 1);
+    assert_eq!(stats.output_records, 0, "all records should be rejected");
+    assert_eq!(stats.rejected_unmapped, 1);
+}

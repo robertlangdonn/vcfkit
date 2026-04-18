@@ -168,6 +168,11 @@ pub struct LiftoverArgs {
     #[arg(long)]
     pub no_fix_swapped_ref: bool,
 
+    /// Suppress the contig-name mismatch error (e.g. b37 VCF + UCSC chain)
+    /// and proceed — all mismatched records will be rejected.
+    #[arg(long)]
+    pub allow_contig_mismatch: bool,
+
     /// Suppress the progress bar even when stderr is a TTY
     #[arg(long)]
     pub no_progress: bool,

@@ -67,6 +67,10 @@ pub struct LiftoverOptions {
     /// Output format for the main writer. Only [`OutputFormat::Vcf`] is
     /// supported. For BCF output, pipe through `bcftools view -O b`.
     pub output_format: crate::io::OutputFormat,
+    /// If true, suppress the contig-name mismatch error (e.g. b37 VCF + UCSC
+    /// chain file) and let liftover proceed (all mismatched records will be
+    /// rejected).
+    pub allow_contig_mismatch: bool,
 }
 
 impl Default for LiftoverOptions {
@@ -76,6 +80,7 @@ impl Default for LiftoverOptions {
             write_src_coords: false,
             fix_swapped_ref: true,
             output_format: crate::io::OutputFormat::Vcf,
+            allow_contig_mismatch: false,
         }
     }
 }
@@ -384,6 +389,83 @@ fn single_char(s: &str, field: &str, lineno: usize) -> Result<char, VcfkitError>
     }
 }
 
+// ── contig mismatch detection ─────────────────────────────────────────────────
+
+/// Detect systematic contig-name mismatches between the VCF header and the
+/// chain file (e.g. VCF uses b37 "22" but chain uses UCSC "chr22").
+///
+/// Returns `Ok(())` if there is no detectable mismatch or if `allow` is true.
+/// Returns `Err` with a human-readable fix hint when a chr-prefix mismatch is
+/// detected.
+fn check_contig_mismatch(
+    header: &vcf::Header,
+    chain: &ChainIndex,
+    allow: bool,
+) -> Result<(), VcfkitError> {
+    // Collect VCF contig names from the header. If none are declared we can't
+    // do any upfront checking (missing ##contig lines are common in older VCFs).
+    let vcf_contigs: Vec<&str> = header.contigs().keys().map(String::as_str).collect();
+    if vcf_contigs.is_empty() {
+        return Ok(());
+    }
+
+    let chain_contigs: std::collections::HashSet<&str> =
+        chain.source_contigs().into_iter().collect();
+
+    // If any VCF contig appears in the chain, the naming is compatible.
+    let any_overlap = vcf_contigs.iter().any(|&c| chain_contigs.contains(c));
+    if any_overlap {
+        return Ok(());
+    }
+
+    // Zero overlap — try to identify whether it's a chr-prefix problem.
+    let first_vcf = match vcf_contigs.first() {
+        Some(&c) => c,
+        None => return Ok(()),
+    };
+    let first_chain = match chain.source_contigs().into_iter().next() {
+        Some(c) => c,
+        None => return Ok(()),
+    };
+
+    let vcf_has_chr = first_vcf.starts_with("chr");
+    let chain_has_chr = first_chain.starts_with("chr");
+
+    if vcf_has_chr == chain_has_chr {
+        // Same naming style but still no overlap — probably different builds or
+        // a completely different VCF/chain combination. Don't guess.
+        return Ok(());
+    }
+
+    let (vcf_style, chain_style, fix) = if !vcf_has_chr && chain_has_chr {
+        (
+            "b37-style (\"1\", \"2\", ...)",
+            "UCSC-style (\"chr1\", \"chr2\", ...)",
+            "rename your VCF contigs before lifting: bcftools annotate --rename-chrs chr_name_conv.txt input.vcf",
+        )
+    } else {
+        (
+            "UCSC-style (\"chr1\", \"chr2\", ...)",
+            "b37-style (\"1\", \"2\", ...)",
+            "rename your VCF contigs before lifting: bcftools annotate --rename-chrs chr_name_conv.txt input.vcf",
+        )
+    };
+
+    let msg = format!(
+        "contig name mismatch: VCF uses {vcf_style} but chain uses {chain_style}\n\
+         hint: {fix}\n\
+         To suppress this error and continue (all records will be rejected), \
+         use --allow-contig-mismatch"
+    );
+
+    if allow {
+        tracing::warn!("{msg}");
+        Ok(())
+    } else {
+        Err(VcfkitError::Other(msg))
+    }
+}
+
 // ── public entry point ───────────────────────────────────────────────────────
 
 /// Liftover a VCF from `reader` to `writer` using the chain file at
@@ -446,6 +528,11 @@ where
     let mut header = vcf_reader
         .read_header()
         .map_err(|e| VcfkitError::Other(format!("failed to read VCF header: {e}")))?;
+
+    // Detect contig-name style mismatches (e.g. b37 "22" vs UCSC "chr22")
+    // before we start processing — all records would be silently rejected
+    // otherwise.
+    check_contig_mismatch(&header, &chain, options.allow_contig_mismatch)?;
 
     // Ensure SRC_CONTIG / SRC_POS are declared in the header if we'll emit them.
     if options.write_src_coords {
