@@ -138,9 +138,8 @@ pub fn assert_vcf_eq(expected: &str, actual: &str) {
 }
 
 /// Render a line-by-line diff of two VCF strings, suitable for embedding in
-/// panic messages. Data records are diffed in order; header lines are diffed
-/// only if they're substantively different (ignoring `##fileformat` and
-/// `##source` lines which vary by tool/version).
+/// panic messages. Header lines are ignored entirely — only data records are
+/// compared.
 pub fn vcf_diff(expected: &str, actual: &str) -> String {
     let exp_records = parse_vcf_records(expected);
     let act_records = parse_vcf_records(actual);

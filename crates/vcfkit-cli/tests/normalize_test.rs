@@ -191,7 +191,11 @@ fn indels_left_align_to_norm_tag_positions() {
             .unwrap_or_else(|| panic!("record {i} missing NORM_ALT"));
         assert_eq!(r.pos, norm_pos, "record {i} POS");
         assert_eq!(&r.ref_allele, norm_ref, "record {i} REF");
-        assert_eq!(&r.alt_alleles[0], norm_alt, "record {i} ALT");
+        assert_eq!(
+            r.alt_alleles.get(0).expect("record must have ALT after left-align"),
+            norm_alt,
+            "record {i} ALT"
+        );
     }
     assert!(stats.left_aligned > 0);
 }
@@ -253,11 +257,10 @@ fn missing_fields_are_handled_without_panicking() {
 
 #[test]
 fn large_indels_left_align_correctly() {
-    // Inline "large" indel against mini_ref.fa. mini_ref[pos 10..=14] is "ACGTA"
-    // and mini_ref[18..=22] is the same "ACGTA" run ("…CGTACGTG…"). So a VCF
-    // claiming an ACGT-insertion anchored at pos 18 (REF=T, ALT=TACGT) should
-    // walk left to pos 10 during left-alignment — exactly the same shift the
-    // indels_unnormalized fixture's first record expects.
+    // Inline "large" indel against mini_ref.fa. The reference has repetitive
+    // sequence that allows the indel to left-align to an earlier position.
+    // A VCF with an insertion anchored at pos 18 (REF=T, ALT=TACGTACGTACGTACGTACGT)
+    // should walk left during left-alignment due to the repeated pattern.
     let input = b"##fileformat=VCFv4.2\n\
 ##FILTER=<ID=PASS,Description=\"All filters passed\">\n\
 ##contig=<ID=chr1,length=120>\n\
