@@ -11,7 +11,7 @@ vcfkit filter -e "INFO/AF < 0.01 && FILTER == 'PASS'" input.vcf > rare_variants.
 ## Install
 
 ```bash
-cargo install vcfkit
+cargo install vcfkit-cli   # installs the `vcfkit` binary
 ```
 
 Or download a pre-built binary from [Releases](https://github.com/robertlangdonn/vcfkit/releases).

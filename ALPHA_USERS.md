@@ -16,7 +16,7 @@ It's a single static binary, no dependencies, no htslib, no Docker. Installs in 
 
 ```bash
 # Requires Rust 1.75+
-cargo install --git https://github.com/robertlangdonn/vcfkit
+cargo install vcfkit-cli   # installs the `vcfkit` binary
 
 # Verify
 vcfkit --version
