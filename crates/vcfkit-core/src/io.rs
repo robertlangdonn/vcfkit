@@ -114,18 +114,16 @@ pub type VcfWriter = vcf::io::Writer<Box<dyn Write>>;
 ///   first four magic bytes.
 pub fn open_vcf(path: Option<&Path>) -> anyhow::Result<VcfReader> {
     match path {
-        Some(p) => {
-            match p.extension().and_then(|e| e.to_str()) {
-                Some("bcf") => {
-                    let reader = bcf::io::reader::Builder::default().build_from_path(p)?;
-                    Ok(VcfReader::Bcf(reader))
-                }
-                _ => {
-                    let reader = vcf::io::reader::Builder::default().build_from_path(p)?;
-                    Ok(VcfReader::Vcf(reader))
-                }
+        Some(p) => match p.extension().and_then(|e| e.to_str()) {
+            Some("bcf") => {
+                let reader = bcf::io::reader::Builder::default().build_from_path(p)?;
+                Ok(VcfReader::Bcf(reader))
             }
-        }
+            _ => {
+                let reader = vcf::io::reader::Builder::default().build_from_path(p)?;
+                Ok(VcfReader::Vcf(reader))
+            }
+        },
         None => {
             // Read stdin into a buffered reader, peek magic bytes.
             let stdin = io::stdin();
@@ -144,8 +142,7 @@ pub fn open_vcf(path: Option<&Path>) -> anyhow::Result<VcfReader> {
             let is_bcf = peeked.len() == 4 && peeked[..] == BCF_MAGIC;
 
             if is_bcf {
-                let inner: Box<dyn Read> =
-                    Box::new(bgzf::io::Reader::new(buf_stdin));
+                let inner: Box<dyn Read> = Box::new(bgzf::io::Reader::new(buf_stdin));
                 Ok(VcfReader::Bcf(bcf::io::Reader::from(inner)))
             } else {
                 let inner: Box<dyn BufRead> = Box::new(buf_stdin);
@@ -165,10 +162,7 @@ pub fn open_vcf(path: Option<&Path>) -> anyhow::Result<VcfReader> {
 ///
 /// Only VCF output is supported in v1. For BCF output, pipe through
 /// `bcftools view -O b`.
-pub fn create_vcf_writer(
-    path: Option<&Path>,
-    _format: OutputFormat,
-) -> anyhow::Result<VcfWriter> {
+pub fn create_vcf_writer(path: Option<&Path>, _format: OutputFormat) -> anyhow::Result<VcfWriter> {
     let writer: Box<dyn Write> = match path {
         Some(p) => {
             let file = std::fs::File::create(p)?;

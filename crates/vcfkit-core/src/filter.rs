@@ -41,15 +41,15 @@ use std::io::{BufRead, Write};
 use noodles::vcf::{
     self,
     variant::{
-        RecordBuf,
         io::Write as _,
         record_buf::{
-            info::field::{Value as InfoValue, value::Array as InfoArray},
+            info::field::{value::Array as InfoArray, Value as InfoValue},
             samples::sample::{
-                Value as SampleValue,
                 value::{Array as SampleArray, Genotype},
+                Value as SampleValue,
             },
         },
+        RecordBuf,
     },
 };
 
@@ -108,11 +108,7 @@ impl FilterExpression {
     /// Returns `Ok(true)` when the record passes the filter, `Ok(false)` when
     /// it does not, and `Err` only for evaluator bugs (well-formed expressions
     /// over well-formed records never return `Err`).
-    pub fn evaluate(
-        &self,
-        record: &RecordBuf,
-        header: &vcf::Header,
-    ) -> Result<bool, VcfkitError> {
+    pub fn evaluate(&self, record: &RecordBuf, header: &vcf::Header) -> Result<bool, VcfkitError> {
         eval_expr(&self.ast, record, header)
     }
 }
@@ -560,7 +556,12 @@ mod parser {
         let trimmed = input.trim();
         match terminated(or_expr, multispace0)(trimmed) {
             Ok(("", ast)) => Ok(ast),
-            Ok((rest, _)) => Err(build_error(input, trimmed, rest, "unexpected trailing input")),
+            Ok((rest, _)) => Err(build_error(
+                input,
+                trimmed,
+                rest,
+                "unexpected trailing input",
+            )),
             Err(e) => Err(nom_error(input, trimmed, e)),
         }
     }
@@ -577,7 +578,11 @@ mod parser {
         ))
     }
 
-    fn nom_error(original: &str, trimmed: &str, err: nom::Err<nom::error::Error<&str>>) -> VcfkitError {
+    fn nom_error(
+        original: &str,
+        trimmed: &str,
+        err: nom::Err<nom::error::Error<&str>>,
+    ) -> VcfkitError {
         match err {
             nom::Err::Incomplete(_) => VcfkitError::Other(format!(
                 "invalid filter expression: incomplete input\n  {original}"
@@ -639,10 +644,7 @@ mod parser {
     /// Try a comparison first; if that fails, fall back to a bare field
     /// reference as an existence check.
     fn comparison_or_existence(i: &str) -> IResult<&str, Expr> {
-        alt((
-            comparison,
-            map(ws(field), Expr::Exists),
-        ))(i)
+        alt((comparison, map(ws(field), Expr::Exists)))(i)
     }
 
     fn comparison(i: &str) -> IResult<&str, Expr> {
@@ -676,14 +678,12 @@ mod parser {
 
     fn field(i: &str) -> IResult<&str, Field> {
         alt((
-            map(
-                preceded(tag("INFO/"), ident),
-                |k: &str| Field::Info(k.to_string()),
-            ),
-            map(
-                preceded(tag("FORMAT/"), ident),
-                |k: &str| Field::Format(k.to_string()),
-            ),
+            map(preceded(tag("INFO/"), ident), |k: &str| {
+                Field::Info(k.to_string())
+            }),
+            map(preceded(tag("FORMAT/"), ident), |k: &str| {
+                Field::Format(k.to_string())
+            }),
             map(tag("CHROM"), |_| Field::Chrom),
             map(tag("POS"), |_| Field::Pos),
             map(tag("QUAL"), |_| Field::Qual),
@@ -738,7 +738,6 @@ mod parser {
     {
         delimited(multispace0, inner, multispace0)
     }
-
 }
 
 // ── tests ────────────────────────────────────────────────────────────────────

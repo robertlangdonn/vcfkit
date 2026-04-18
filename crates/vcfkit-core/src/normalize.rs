@@ -20,13 +20,13 @@ use noodles::{
         self,
         header::record::value::map::{format, info},
         variant::{
-            RecordBuf,
             io::Write as _,
             record_buf::{
+                info::field::{value::Array as InfoArray, Value as InfoValue},
+                samples::sample::{value::Array as SampleArray, Value as SampleValue},
                 AlternateBases, Samples,
-                info::field::{Value as InfoValue, value::Array as InfoArray},
-                samples::sample::{Value as SampleValue, value::Array as SampleArray},
             },
+            RecordBuf,
         },
     },
 };
@@ -163,7 +163,9 @@ where
                     if pos > contig_length {
                         tracing::warn!(
                             "position {} out of bounds for contig {} (length {}); skipping",
-                            pos, chrom, contig_length
+                            pos,
+                            chrom,
+                            contig_length
                         );
                         stats.out_of_bounds += 1;
                         continue;
@@ -217,14 +219,13 @@ fn process_record(
     }
 
     // 2. Split multi-allelics (if enabled and needed).
-    let split_records: Vec<RecordBuf> = if options.split_multiallelics
-        && record.alternate_bases().as_ref().len() > 1
-    {
-        stats.split_sites += 1;
-        split_multiallelic(record, header)
-    } else {
-        vec![record.clone()]
-    };
+    let split_records: Vec<RecordBuf> =
+        if options.split_multiallelics && record.alternate_bases().as_ref().len() > 1 {
+            stats.split_sites += 1;
+            split_multiallelic(record, header)
+        } else {
+            vec![record.clone()]
+        };
 
     // 3. For each (possibly-split) record, left-align.
     let mut out = Vec::with_capacity(split_records.len());

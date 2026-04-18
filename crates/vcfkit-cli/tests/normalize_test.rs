@@ -19,7 +19,7 @@ use std::{
 
 use vcfkit_core::{
     io::OutputFormat,
-    normalize::{NormalizeOptions, RefCheck, normalize},
+    normalize::{normalize, NormalizeOptions, RefCheck},
 };
 
 use crate::common::diff::{assert_vcf_eq, parse_vcf_records};
@@ -82,10 +82,8 @@ fn filter_to_ref_chroms(input: &[u8], fai_path: &Path) -> Vec<u8> {
     // Parse chromosome names from the .fai file (first column of each line).
     let fai = fs::read_to_string(fai_path)
         .unwrap_or_else(|e| panic!("failed to read {}: {e}", fai_path.display()));
-    let ref_chroms: std::collections::HashSet<&str> = fai
-        .lines()
-        .filter_map(|l| l.split('\t').next())
-        .collect();
+    let ref_chroms: std::collections::HashSet<&str> =
+        fai.lines().filter_map(|l| l.split('\t').next()).collect();
 
     let src = std::str::from_utf8(input).expect("VCF is valid UTF-8");
     let mut out = Vec::new();
@@ -178,7 +176,11 @@ fn multi_allelic_split_produces_biallelic_records() {
     let (out, stats) = run_normalize(&input, opts);
 
     let records = parse_vcf_records(&out);
-    assert_eq!(records.len(), 11, "five sites -> 2+2+3+2+2 biallelic records");
+    assert_eq!(
+        records.len(),
+        11,
+        "five sites -> 2+2+3+2+2 biallelic records"
+    );
     for r in &records {
         assert_eq!(
             r.alt_alleles.len(),
@@ -223,7 +225,9 @@ fn indels_left_align_to_norm_tag_positions() {
         assert_eq!(r.pos, norm_pos, "record {i} POS");
         assert_eq!(&r.ref_allele, norm_ref, "record {i} REF");
         assert_eq!(
-            r.alt_alleles.first().expect("record must have ALT after left-align"),
+            r.alt_alleles
+                .first()
+                .expect("record must have ALT after left-align"),
             norm_alt,
             "record {i} ALT"
         );
@@ -310,9 +314,16 @@ chr1\t18\t.\tT\tTACGTACGTACGTACGTACGT\t50\tPASS\t.\tGT\t0/1\n";
     assert_eq!(stats.input_records, 1);
     assert_eq!(stats.left_aligned, 1, "large indel must be left-aligned");
     // The indel should shift to an earlier position with a new anchor base.
-    assert!(records[0].pos < 18, "expected shift left, got {}", records[0].pos);
+    assert!(
+        records[0].pos < 18,
+        "expected shift left, got {}",
+        records[0].pos
+    );
     // Length of (ALT - REF) must be preserved (a 20-bp insertion stays 20 bp).
-    assert_eq!(records[0].alt_alleles[0].len() - records[0].ref_allele.len(), 20);
+    assert_eq!(
+        records[0].alt_alleles[0].len() - records[0].ref_allele.len(),
+        20
+    );
 }
 
 #[test]
@@ -613,15 +624,24 @@ chr1\t999999\t.\tA\tG\t50\tPASS\t.\tGT\t0/1\n";
         check_ref: RefCheck::Ignore,
         output_format: OutputFormat::Vcf,
     };
-    let (out, stats) =
-        run_normalize(input, opts);
+    let (out, stats) = run_normalize(input, opts);
     // Run must complete (not panic/error).
-    assert_eq!(stats.out_of_bounds, 1, "expected 1 out-of-bounds record skipped");
+    assert_eq!(
+        stats.out_of_bounds, 1,
+        "expected 1 out-of-bounds record skipped"
+    );
     assert_eq!(stats.input_records, 2);
     // Only the in-bounds record (pos=10) appears in the output.
     let records = parse_vcf_records(&out);
-    assert_eq!(records.len(), 1, "only the in-bounds record should be written");
-    assert_eq!(records[0].pos, 10, "the remaining record should be at position 10");
+    assert_eq!(
+        records.len(),
+        1,
+        "only the in-bounds record should be written"
+    );
+    assert_eq!(
+        records[0].pos, 10,
+        "the remaining record should be at position 10"
+    );
     assert!(
         records.iter().all(|r| r.pos != 999999),
         "out-of-bounds position 999999 must not appear in output"

@@ -5,15 +5,15 @@ use std::{
     io::{self, BufReader, BufWriter},
 };
 
-use anyhow::{Context, anyhow};
+use anyhow::{anyhow, Context};
 
 use vcfkit_core::{
-    filter::{FilterExpression, FilterOptions, filter_with_progress},
+    filter::{filter_with_progress, FilterExpression, FilterOptions},
     io::OutputFormat,
 };
 
-use crate::FilterArgs;
 use crate::output::ProgressReporter;
+use crate::FilterArgs;
 
 /// Run the filter subcommand.
 pub fn run(args: &FilterArgs, quiet: bool) -> anyhow::Result<()> {
@@ -35,44 +35,45 @@ pub fn run(args: &FilterArgs, quiet: bool) -> anyhow::Result<()> {
     let reporter = ProgressReporter::new_with_flags(None, quiet, args.no_progress);
     let on_record = |_n: u64| reporter.inc();
 
-    let stats = match (args.input.as_deref(), args.output.as_deref()) {
-        (Some(in_path), Some(out_path)) => {
-            let reader = BufReader::new(File::open(in_path).with_context(|| {
-                format!("failed to open input file '{}'", in_path.display())
-            })?);
-            let writer = BufWriter::new(File::create(out_path).with_context(|| {
-                format!("failed to create output file '{}'", out_path.display())
-            })?);
-            filter_with_progress(reader, writer, expression, options, on_record)
-                .with_context(|| "filter failed")?
-        }
-        (Some(in_path), None) => {
-            let reader = BufReader::new(File::open(in_path).with_context(|| {
-                format!("failed to open input file '{}'", in_path.display())
-            })?);
-            let stdout = io::stdout();
-            let writer = BufWriter::new(stdout.lock());
-            filter_with_progress(reader, writer, expression, options, on_record)
-                .with_context(|| "filter failed")?
-        }
-        (None, Some(out_path)) => {
-            let stdin = io::stdin();
-            let reader = BufReader::new(stdin.lock());
-            let writer = BufWriter::new(File::create(out_path).with_context(|| {
-                format!("failed to create output file '{}'", out_path.display())
-            })?);
-            filter_with_progress(reader, writer, expression, options, on_record)
-                .with_context(|| "filter failed")?
-        }
-        (None, None) => {
-            let stdin = io::stdin();
-            let stdout = io::stdout();
-            let reader = BufReader::new(stdin.lock());
-            let writer = BufWriter::new(stdout.lock());
-            filter_with_progress(reader, writer, expression, options, on_record)
-                .with_context(|| "filter failed")?
-        }
-    };
+    let stats =
+        match (args.input.as_deref(), args.output.as_deref()) {
+            (Some(in_path), Some(out_path)) => {
+                let reader = BufReader::new(File::open(in_path).with_context(|| {
+                    format!("failed to open input file '{}'", in_path.display())
+                })?);
+                let writer = BufWriter::new(File::create(out_path).with_context(|| {
+                    format!("failed to create output file '{}'", out_path.display())
+                })?);
+                filter_with_progress(reader, writer, expression, options, on_record)
+                    .with_context(|| "filter failed")?
+            }
+            (Some(in_path), None) => {
+                let reader = BufReader::new(File::open(in_path).with_context(|| {
+                    format!("failed to open input file '{}'", in_path.display())
+                })?);
+                let stdout = io::stdout();
+                let writer = BufWriter::new(stdout.lock());
+                filter_with_progress(reader, writer, expression, options, on_record)
+                    .with_context(|| "filter failed")?
+            }
+            (None, Some(out_path)) => {
+                let stdin = io::stdin();
+                let reader = BufReader::new(stdin.lock());
+                let writer = BufWriter::new(File::create(out_path).with_context(|| {
+                    format!("failed to create output file '{}'", out_path.display())
+                })?);
+                filter_with_progress(reader, writer, expression, options, on_record)
+                    .with_context(|| "filter failed")?
+            }
+            (None, None) => {
+                let stdin = io::stdin();
+                let stdout = io::stdout();
+                let reader = BufReader::new(stdin.lock());
+                let writer = BufWriter::new(stdout.lock());
+                filter_with_progress(reader, writer, expression, options, on_record)
+                    .with_context(|| "filter failed")?
+            }
+        };
 
     reporter.finish("filter complete");
 

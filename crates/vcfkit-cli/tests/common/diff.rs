@@ -57,7 +57,10 @@ pub fn parse_vcf_records(vcf: &str) -> Vec<VcfRecord> {
             parts[6].split(';').map(str::to_string).collect()
         };
         let info = parse_info(parts[7]);
-        let format = parts.get(8).filter(|s| !s.is_empty()).map(|s| s.to_string());
+        let format = parts
+            .get(8)
+            .filter(|s| !s.is_empty())
+            .map(|s| s.to_string());
         let samples: Vec<String> = if parts.len() > 9 {
             parts[9..].iter().map(|s| s.to_string()).collect()
         } else {

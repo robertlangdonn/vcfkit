@@ -144,8 +144,8 @@ struct OwnedEvent {
 }
 
 fn post_event(event: &OwnedEvent) -> Result<()> {
-    let url = std::env::var("VCFKIT_TELEMETRY_URL")
-        .unwrap_or_else(|_| DEFAULT_TELEMETRY_URL.to_string());
+    let url =
+        std::env::var("VCFKIT_TELEMETRY_URL").unwrap_or_else(|_| DEFAULT_TELEMETRY_URL.to_string());
     let body = serde_json::to_string(event)?;
 
     // Only send if `curl` is on PATH; otherwise skip silently.

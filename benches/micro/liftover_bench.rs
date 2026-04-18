@@ -83,7 +83,9 @@ chr1\t97\t.\tA\tG\t60\tPASS\tAF=0.2\tGT\t0/1\n\
 chr1\t99\t.\tT\tA\t45\tPASS\tAF=0.6\tGT\t1/1\n\
 ";
 
-fn write_files(dir: &std::path::Path) -> (std::path::PathBuf, std::path::PathBuf, std::path::PathBuf) {
+fn write_files(
+    dir: &std::path::Path,
+) -> (std::path::PathBuf, std::path::PathBuf, std::path::PathBuf) {
     std::fs::create_dir_all(dir).expect("create temp dir");
     let chain_path = dir.join("bench.chain");
     let src_fa_path = dir.join("src.fa");

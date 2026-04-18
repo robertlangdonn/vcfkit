@@ -16,7 +16,7 @@ use std::{
 
 use vcfkit_core::{
     io::OutputFormat,
-    liftover::{ChainIndex, LiftoverOptions, LiftoverStats, liftover},
+    liftover::{liftover, ChainIndex, LiftoverOptions, LiftoverStats},
 };
 
 use crate::common::diff::parse_vcf_records;
@@ -195,10 +195,7 @@ fn contig_rename_chr1_to_chr2() {
     let chain_path = write_file(&dir, "x.chain", chain.as_bytes());
 
     // chr1:5 (pos0=4) → chr2: 200+4+1 = 205. REF at pos0=4 is seq[4] = 'A'.
-    let input = make_vcf(
-        &[("chr1", 5, "A", "G")],
-        &[("chr1", 200), ("chr2", 260)],
-    );
+    let input = make_vcf(&[("chr1", 5, "A", "G")], &[("chr1", 200), ("chr2", 260)]);
     let (out, stats) = run_core(
         &input,
         &chain_path,
@@ -329,8 +326,14 @@ fn write_src_coords_populates_info_fields() {
 
     let records = parse_vcf_records(&out);
     assert_eq!(records.len(), 1);
-    assert_eq!(records[0].info.get("SRC_CONTIG").map(|s| s.as_str()), Some("chr1"));
-    assert_eq!(records[0].info.get("SRC_POS").map(|s| s.as_str()), Some("5"));
+    assert_eq!(
+        records[0].info.get("SRC_CONTIG").map(|s| s.as_str()),
+        Some("chr1")
+    );
+    assert_eq!(
+        records[0].info.get("SRC_POS").map(|s| s.as_str()),
+        Some("5")
+    );
     assert_eq!(records[0].pos, 105);
 }
 
@@ -498,9 +501,9 @@ fn variants_in_chain_gaps_are_rejected() {
     assert_eq!(seq[19], b'T');
     let input = make_vcf(
         &[
-            ("chr1", 5, "A", "G"),   // in block 1 -> pos 104
-            ("chr1", 12, "T", "G"),  // in the gap -> rejected
-            ("chr1", 20, "T", "A"),  // in block 2 -> pos 120
+            ("chr1", 5, "A", "G"),  // in block 1 -> pos 104
+            ("chr1", 12, "T", "G"), // in the gap -> rejected
+            ("chr1", 20, "T", "A"), // in block 2 -> pos 120
         ],
         &[("chr1", 200)],
     );
@@ -717,13 +720,23 @@ fn multi_block_neg_strand_tgt_cursor_advances_correctly() {
 
     assert_eq!(stats.input_records, 1, "one record in");
     assert_eq!(stats.output_records, 1, "should be lifted (not rejected)");
-    assert_eq!(stats.swapped_alleles, 1, "alleles should be swapped for '-' strand");
+    assert_eq!(
+        stats.swapped_alleles, 1,
+        "alleles should be swapped for '-' strand"
+    );
 
     let recs = parse_vcf_records(&out);
     assert_eq!(recs.len(), 1);
     assert_eq!(recs[0].chrom, "chr2");
     // tgt_end - offset - ref_len + 1 (1-based) = 87 - 2 - 1 + 1 = 85
-    assert_eq!(recs[0].pos, 85, "second block maps to lower forward-strand position");
+    assert_eq!(
+        recs[0].pos, 85,
+        "second block maps to lower forward-strand position"
+    );
     assert_eq!(recs[0].ref_allele, "C", "rev_comp(G) = C");
-    assert_eq!(recs[0].alt_alleles, vec!["T".to_string()], "rev_comp(A) = T");
+    assert_eq!(
+        recs[0].alt_alleles,
+        vec!["T".to_string()],
+        "rev_comp(A) = T"
+    );
 }

@@ -5,8 +5,8 @@ use std::time::Instant;
 
 use anyhow::Result;
 use clap::{CommandFactory, Parser, Subcommand, ValueEnum};
-use clap_complete::{Shell, generate};
-use tracing_subscriber::{EnvFilter, fmt};
+use clap_complete::{generate, Shell};
+use tracing_subscriber::{fmt, EnvFilter};
 
 mod commands;
 mod output;

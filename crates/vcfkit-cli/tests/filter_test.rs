@@ -10,7 +10,7 @@ use std::{
     process::{Command, Stdio},
 };
 
-use vcfkit_core::filter::{FilterExpression, FilterOptions, filter};
+use vcfkit_core::filter::{filter, FilterExpression, FilterOptions};
 
 use crate::common::diff::parse_vcf_records;
 
@@ -36,7 +36,11 @@ fn read_corpus(name: &str) -> Vec<u8> {
     })
 }
 
-fn run_filter(input: &[u8], expr: &str, invert: bool) -> (String, vcfkit_core::filter::FilterStats) {
+fn run_filter(
+    input: &[u8],
+    expr: &str,
+    invert: bool,
+) -> (String, vcfkit_core::filter::FilterStats) {
     let ast = FilterExpression::parse(expr)
         .unwrap_or_else(|e| panic!("expression {expr:?} should parse: {e}"));
     let opts = FilterOptions {
@@ -128,11 +132,7 @@ fn chrom_and_dp() {
 /// 5. `INFO/AF < 0.01 || CHROM == 'chr17'` — OR combination.
 #[test]
 fn af_or_chrom() {
-    let (out, stats) = run_filter(
-        TYPED_VCF,
-        "INFO/AF < 0.01 || CHROM == 'chr17'",
-        false,
-    );
+    let (out, stats) = run_filter(TYPED_VCF, "INFO/AF < 0.01 || CHROM == 'chr17'", false);
     let recs = parse_vcf_records(&out);
     // AF<0.01: pos 300 (0.001) ✓, pos 17:150 (0.003) ✓. Plus all chr17 records.
     // chr17 records: pos 150, pos 250 → 2. pos 300 adds 1. Total unique: 3.
@@ -181,7 +181,11 @@ fn missing_info_field_does_not_pass() {
     let recs = parse_vcf_records(&out);
     // In missing_fields.vcf, only one record has an AF value (AF=.) and it's
     // missing — so the filter should select zero records.
-    assert_eq!(recs.len(), 0, "expected no records to pass when INFO field is missing");
+    assert_eq!(
+        recs.len(),
+        0,
+        "expected no records to pass when INFO field is missing"
+    );
     for r in &recs {
         assert!(
             r.info.contains_key("AF") && !r.info["AF"].is_empty() && r.info["AF"] != ".",
@@ -269,7 +273,10 @@ fn format_gt_field_access() {
     assert_eq!(stats.output_records, 2);
     for r in &recs {
         assert!(
-            r.samples.first().map(|s| s.starts_with("1/1")).unwrap_or(false),
+            r.samples
+                .first()
+                .map(|s| s.starts_with("1/1"))
+                .unwrap_or(false),
             "expected 1/1 GT, got {:?}",
             r.samples
         );
@@ -280,11 +287,7 @@ fn format_gt_field_access() {
 #[test]
 fn multiline_info_compound_filter() {
     let input = read_corpus("multiline_info.vcf");
-    let (out, stats) = run_filter(
-        &input,
-        "INFO/AF < 0.05 && INFO/CSQ ~ 'missense'",
-        false,
-    );
+    let (out, stats) = run_filter(&input, "INFO/AF < 0.05 && INFO/CSQ ~ 'missense'", false);
     let recs = parse_vcf_records(&out);
     assert!(stats.input_records > 0);
     assert_eq!(stats.output_records, recs.len());

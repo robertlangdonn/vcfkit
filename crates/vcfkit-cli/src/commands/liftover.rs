@@ -10,11 +10,11 @@ use anyhow::Context;
 
 use vcfkit_core::{
     io::OutputFormat,
-    liftover::{KNOWN_CHAIN_URLS, LiftoverOptions, liftover_with_progress},
+    liftover::{liftover_with_progress, LiftoverOptions, KNOWN_CHAIN_URLS},
 };
 
-use crate::LiftoverArgs;
 use crate::output::ProgressReporter;
+use crate::LiftoverArgs;
 
 /// Print the known chain-file URLs to stdout and return.
 pub fn print_known_chains() {
@@ -79,76 +79,53 @@ pub fn run(args: &LiftoverArgs, quiet: bool) -> anyhow::Result<()> {
     let reporter = ProgressReporter::new_with_flags(None, quiet, args.no_progress);
     let on_record = |_n: u64| reporter.inc();
 
-    let stats = match (args.input.as_deref(), args.output.as_deref()) {
-        (Some(in_path), Some(out_path)) => {
-            let reader = BufReader::new(File::open(in_path).with_context(|| {
-                format!("failed to open input file '{}'", in_path.display())
-            })?);
-            let writer = BufWriter::new(File::create(out_path).with_context(|| {
-                format!("failed to create output file '{}'", out_path.display())
-            })?);
-            liftover_with_progress(
-                reader,
-                writer,
-                chain_path,
-                source_ref,
-                target_ref,
-                options,
-                on_record,
-            )
-            .with_context(|| "liftover failed")?
-        }
-        (Some(in_path), None) => {
-            let reader = BufReader::new(File::open(in_path).with_context(|| {
-                format!("failed to open input file '{}'", in_path.display())
-            })?);
-            let stdout = io::stdout();
-            let writer = BufWriter::new(stdout.lock());
-            liftover_with_progress(
-                reader,
-                writer,
-                chain_path,
-                source_ref,
-                target_ref,
-                options,
-                on_record,
-            )
-            .with_context(|| "liftover failed")?
-        }
-        (None, Some(out_path)) => {
-            let stdin = io::stdin();
-            let reader = BufReader::new(stdin.lock());
-            let writer = BufWriter::new(File::create(out_path).with_context(|| {
-                format!("failed to create output file '{}'", out_path.display())
-            })?);
-            liftover_with_progress(
-                reader,
-                writer,
-                chain_path,
-                source_ref,
-                target_ref,
-                options,
-                on_record,
-            )
-            .with_context(|| "liftover failed")?
-        }
-        (None, None) => {
-            let stdin = io::stdin();
-            let stdout = io::stdout();
-            let reader = BufReader::new(stdin.lock());
-            let writer = BufWriter::new(stdout.lock());
-            liftover_with_progress(
-                reader,
-                writer,
-                chain_path,
-                source_ref,
-                target_ref,
-                options,
-                on_record,
-            )
-            .with_context(|| "liftover failed")?
-        }
-    };
+    let stats =
+        match (args.input.as_deref(), args.output.as_deref()) {
+            (Some(in_path), Some(out_path)) => {
+                let reader = BufReader::new(File::open(in_path).with_context(|| {
+                    format!("failed to open input file '{}'", in_path.display())
+                })?);
+                let writer = BufWriter::new(File::create(out_path).with_context(|| {
+                    format!("failed to create output file '{}'", out_path.display())
+                })?);
+                liftover_with_progress(
+                    reader, writer, chain_path, source_ref, target_ref, options, on_record,
+                )
+                .with_context(|| "liftover failed")?
+            }
+            (Some(in_path), None) => {
+                let reader = BufReader::new(File::open(in_path).with_context(|| {
+                    format!("failed to open input file '{}'", in_path.display())
+                })?);
+                let stdout = io::stdout();
+                let writer = BufWriter::new(stdout.lock());
+                liftover_with_progress(
+                    reader, writer, chain_path, source_ref, target_ref, options, on_record,
+                )
+                .with_context(|| "liftover failed")?
+            }
+            (None, Some(out_path)) => {
+                let stdin = io::stdin();
+                let reader = BufReader::new(stdin.lock());
+                let writer = BufWriter::new(File::create(out_path).with_context(|| {
+                    format!("failed to create output file '{}'", out_path.display())
+                })?);
+                liftover_with_progress(
+                    reader, writer, chain_path, source_ref, target_ref, options, on_record,
+                )
+                .with_context(|| "liftover failed")?
+            }
+            (None, None) => {
+                let stdin = io::stdin();
+                let stdout = io::stdout();
+                let reader = BufReader::new(stdin.lock());
+                let writer = BufWriter::new(stdout.lock());
+                liftover_with_progress(
+                    reader, writer, chain_path, source_ref, target_ref, options, on_record,
+                )
+                .with_context(|| "liftover failed")?
+            }
+        };
 
     reporter.finish("liftover complete");
 

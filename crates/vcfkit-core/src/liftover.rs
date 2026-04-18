@@ -35,13 +35,13 @@ use noodles::{
     vcf::{
         self,
         header::record::value::{
-            Map,
             map::info::{Number, Type},
+            Map,
         },
         variant::{
-            RecordBuf,
             io::Write as _,
-            record_buf::{AlternateBases, info::field::Value as InfoValue},
+            record_buf::{info::field::Value as InfoValue, AlternateBases},
+            RecordBuf,
         },
     },
 };
@@ -496,9 +496,8 @@ where
             }
             LiftResult::Reject => {
                 if let Some(w) = reject_writer.as_mut() {
-                    w.write_variant_record(&header, &record).map_err(|e| {
-                        VcfkitError::Other(format!("failed to write reject: {e}"))
-                    })?;
+                    w.write_variant_record(&header, &record)
+                        .map_err(|e| VcfkitError::Other(format!("failed to write reject: {e}")))?;
                 }
             }
         }
