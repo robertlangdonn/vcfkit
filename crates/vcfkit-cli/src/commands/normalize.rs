@@ -32,6 +32,7 @@ pub fn run(args: &NormalizeArgs, quiet: bool) -> anyhow::Result<()> {
             .as_deref()
             .map(vcfkit_core::io::format_from_path)
             .unwrap_or(OutputFormat::Vcf),
+        fast: args.fast,
     };
 
     // Validate reference up front so the user sees the clearest possible

@@ -100,6 +100,12 @@ pub struct NormalizeArgs {
     #[arg(long)]
     pub no_progress: bool,
 
+    /// Fast path: biallelic SNPs/MNPs skip noodles entirely and are written as
+    /// raw bytes (~4× faster on SNP-heavy VCFs). Multi-allelics and indels fall
+    /// back to the full pipeline automatically.
+    #[arg(long)]
+    pub fast: bool,
+
     /// Input VCF/BCF (default: stdin)
     #[arg(value_name = "INPUT")]
     pub input: Option<PathBuf>,

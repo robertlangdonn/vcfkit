@@ -71,6 +71,7 @@ fn default_opts() -> NormalizeOptions {
         left_align: true,
         check_ref: RefCheck::Ignore,
         output_format: OutputFormat::Vcf,
+        fast: false,
     }
 }
 
@@ -257,6 +258,7 @@ chr1\t3\t.\tT\tA\t50\tPASS\t.\tGT\t0/1\n";
         left_align: false,
         check_ref: RefCheck::Warn,
         output_format: OutputFormat::Vcf,
+        fast: false,
     };
     let (_out, stats) = run_normalize(input, opts);
     assert_eq!(stats.ref_mismatches, 3);
@@ -307,6 +309,7 @@ chr1\t18\t.\tT\tTACGTACGTACGTACGTACGT\t50\tPASS\t.\tGT\t0/1\n";
         left_align: true,
         check_ref: RefCheck::Ignore,
         output_format: OutputFormat::Vcf,
+        fast: false,
     };
     let (out, stats) = run_normalize(input, opts);
     let records = parse_vcf_records(&out);
@@ -334,6 +337,7 @@ fn no_split_flag_preserves_multi_allelic_records() {
         left_align: false,
         check_ref: RefCheck::Ignore,
         output_format: OutputFormat::Vcf,
+        fast: false,
     };
     let (out, stats) = run_normalize(&input, opts);
     let records = parse_vcf_records(&out);
@@ -352,6 +356,7 @@ fn no_left_align_flag_preserves_indel_positions() {
         left_align: false,
         check_ref: RefCheck::Ignore,
         output_format: OutputFormat::Vcf,
+        fast: false,
     };
     let (out, stats) = run_normalize(&input, opts);
     assert_eq!(stats.left_aligned, 0);
@@ -385,6 +390,7 @@ chr1\t1\t.\tA\tG\t50\tPASS\t.\tGT\t0/1\n";
         left_align: false,
         check_ref: RefCheck::Error,
         output_format: OutputFormat::Vcf,
+        fast: false,
     };
     let mut out = Vec::new();
     let res = normalize(&input[..], &mut out, &reference_fa(), opts);
@@ -407,6 +413,7 @@ fn check_ref_ignore_does_not_count_mismatches() {
         left_align: false,
         check_ref: RefCheck::Ignore,
         output_format: OutputFormat::Vcf,
+        fast: false,
     };
     let (_out, stats) = run_normalize(&input, opts);
     assert_eq!(stats.ref_mismatches, 0);
@@ -424,6 +431,7 @@ fn split_preserves_number_a_and_r_slicing() {
         left_align: false,
         check_ref: RefCheck::Ignore,
         output_format: OutputFormat::Vcf,
+        fast: false,
     };
     let (out, _stats) = run_normalize(&input, opts);
     let records = parse_vcf_records(&out);
@@ -454,6 +462,7 @@ fn split_then_left_align_is_order_independent() {
         left_align: true,
         check_ref: RefCheck::Ignore,
         output_format: OutputFormat::Vcf,
+        fast: false,
     };
     let (out_both, stats_both) = run_normalize(&input, opts_both);
 
@@ -462,6 +471,7 @@ fn split_then_left_align_is_order_independent() {
         left_align: true,
         check_ref: RefCheck::Ignore,
         output_format: OutputFormat::Vcf,
+        fast: false,
     };
     let (out_left_only, _) = run_normalize(&input, opts_left_only);
 
@@ -482,6 +492,7 @@ fn multi_allelic_with_left_align_retains_per_allele_info() {
         left_align: true,
         check_ref: RefCheck::Ignore,
         output_format: OutputFormat::Vcf,
+        fast: false,
     };
     let (out, stats) = run_normalize(&input, opts);
     let records = parse_vcf_records(&out);
@@ -623,6 +634,7 @@ chr1\t999999\t.\tA\tG\t50\tPASS\t.\tGT\t0/1\n";
         left_align: false,
         check_ref: RefCheck::Ignore,
         output_format: OutputFormat::Vcf,
+        fast: false,
     };
     let (out, stats) = run_normalize(input, opts);
     // Run must complete (not panic/error).
@@ -674,6 +686,7 @@ chr1\t10\t.\tA\tT,G\t50\tPASS\tGL=-0.5,-1.0,-2.0,-1.5,-3.0,-4.0\tGT\t0/1\n";
         left_align: false,
         check_ref: RefCheck::Ignore,
         output_format: OutputFormat::Vcf,
+        fast: false,
     };
     let (out, stats) = run_normalize(input, opts);
     assert_eq!(stats.input_records, 1);
@@ -736,6 +749,7 @@ chr1\t10\t.\tA\tT,G\t50\tPASS\tAF=0.3,0.2;CSQV=foo|bar|baz\tGT\t0/1\n";
         left_align: false,
         check_ref: RefCheck::Ignore,
         output_format: OutputFormat::Vcf,
+        fast: false,
     };
     let (out, stats) = run_normalize(input, opts);
     assert_eq!(stats.output_records, 2);
@@ -787,6 +801,7 @@ chr1\t10\t.\tA\tT,G\t50\tPASS\tAF=0.3,0.2;DB\tGT\t0/1\n";
         left_align: false,
         check_ref: RefCheck::Ignore,
         output_format: OutputFormat::Vcf,
+        fast: false,
     };
     let (out, stats) = run_normalize(input, opts);
     assert_eq!(stats.output_records, 2);
@@ -824,6 +839,7 @@ chr1\t10\t.\tA\tT,G\t50\tPASS\tDP=100\tGT:VAF\t0/1:0.35,0.15\n";
         left_align: false,
         check_ref: RefCheck::Ignore,
         output_format: OutputFormat::Vcf,
+        fast: false,
     };
     let (out, stats) = run_normalize(input, opts);
     assert_eq!(stats.output_records, 2);
@@ -894,6 +910,7 @@ chr1\t10\t.\tA\tT,G\t50\tPASS\tDP=100\tGT:AD\t0/1:50,30,20\n";
         left_align: false,
         check_ref: RefCheck::Ignore,
         output_format: OutputFormat::Vcf,
+        fast: false,
     };
     let (out, stats) = run_normalize(input, opts);
     assert_eq!(stats.output_records, 2);
@@ -989,4 +1006,66 @@ fn diff_indels_left_align_matches_bcftools_norm() {
     let (actual, _) = run_normalize(&input, opts);
     let expected = run_bcftools_norm(&input, &reference_fa(), &[]);
     assert_vcf_eq(&expected, &actual);
+}
+
+// ── fast-path parity ──────────────────────────────────────────────────────────
+
+#[test]
+fn fast_path_snps_match_noodles_path() {
+    // Basic SNP corpus: all records are biallelic SNPs. The fast path should
+    // produce byte-identical output to the noodles path.
+    let input = read_corpus("basic.vcf");
+    let opts_slow = NormalizeOptions { fast: false, ..default_opts() };
+    let opts_fast = NormalizeOptions { fast: true, ..default_opts() };
+    let (slow, stats_slow) = run_normalize(&input, opts_slow);
+    let (fast, stats_fast) = run_normalize(&input, opts_fast);
+    assert_vcf_eq(&slow, &fast);
+    assert_eq!(stats_slow.input_records, stats_fast.input_records);
+    assert_eq!(stats_slow.output_records, stats_fast.output_records);
+}
+
+#[test]
+fn fast_path_multi_allelic_falls_back_correctly() {
+    // Multi-allelic corpus: the fast path should fall back to noodles for each
+    // multi-allelic record and produce the same output.
+    let input = read_corpus("multi_allelic.vcf");
+    let opts_slow = NormalizeOptions {
+        split_multiallelics: true,
+        left_align: false,
+        fast: false,
+        ..default_opts()
+    };
+    let opts_fast = NormalizeOptions {
+        split_multiallelics: true,
+        left_align: false,
+        fast: true,
+        ..default_opts()
+    };
+    let (slow, stats_slow) = run_normalize(&input, opts_slow);
+    let (fast, stats_fast) = run_normalize(&input, opts_fast);
+    assert_vcf_eq(&slow, &fast);
+    assert_eq!(stats_slow.output_records, stats_fast.output_records);
+}
+
+#[test]
+fn fast_path_indels_fall_back_to_left_align() {
+    // Indel corpus with left-align enabled: indels fall back to noodles in fast
+    // mode and must produce the same left-aligned output.
+    let input = read_corpus("indels_unnormalized.vcf");
+    let opts_slow = NormalizeOptions {
+        split_multiallelics: false,
+        left_align: true,
+        fast: false,
+        ..default_opts()
+    };
+    let opts_fast = NormalizeOptions {
+        split_multiallelics: false,
+        left_align: true,
+        fast: true,
+        ..default_opts()
+    };
+    let (slow, stats_slow) = run_normalize(&input, opts_slow);
+    let (fast, stats_fast) = run_normalize(&input, opts_fast);
+    assert_vcf_eq(&slow, &fast);
+    assert_eq!(stats_slow.left_aligned, stats_fast.left_aligned);
 }
