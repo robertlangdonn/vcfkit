@@ -1,0 +1,28 @@
+[workspace]
+resolver = "2"
+members = ["crates/vcfkit-core", "crates/vcfkit-cli"]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.75"
+authors = ["Prasad Khake"]
+license = "MIT"
+repository = "https://github.com/robertlangdonn/vcfkit"
+
+[workspace.dependencies]
+noodles = { version = "0.109", features = ["vcf", "bcf", "fasta", "csi", "tabix"] }
+clap = { version = "4", features = ["derive", "cargo"] }
+anyhow = "1"
+thiserror = "2"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+owo-colors = "4"
+indicatif = "0.17"
+
+[profile.release]
+lto = "thin"
+codegen-units = 1
+strip = true

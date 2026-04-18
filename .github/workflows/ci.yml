@@ -1,0 +1,19 @@
+name: CI
+
+on:
+  push:
+    branches: [main, phase-1-scaffold]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy, rustfmt
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo test --all
+      - run: cargo clippy --all -- -D warnings
+      - run: cargo fmt --all --check
