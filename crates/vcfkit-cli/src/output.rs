@@ -34,9 +34,7 @@ impl ProgressReporter {
         }
 
         match total_records {
-            Some(n) if n <= MIN_RECORDS_FOR_BAR => Self {
-                bar: Some(ProgressBar::hidden()),
-            },
+            Some(n) if n <= MIN_RECORDS_FOR_BAR => Self { bar: None },
             Some(n) => {
                 let bar = ProgressBar::new(n);
                 bar.set_style(
@@ -94,12 +92,12 @@ mod tests {
 
     #[test]
     fn small_total_hides_bar() {
-        // In a non-TTY test environment we take the early-return first,
-        // but this still exercises the code path.
+        // Both the non-TTY early-return and the small-record branch now
+        // return bar: None — assert that in either case bar is None.
         let r = ProgressReporter::new(Some(42), false);
         r.inc();
         r.finish("done");
-        // With a non-TTY test runner, bar is None; either way no panic.
+        assert!(r.bar.is_none());
     }
 
     #[test]

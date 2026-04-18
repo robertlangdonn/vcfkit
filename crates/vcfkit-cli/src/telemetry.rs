@@ -52,7 +52,7 @@ impl TelemetryConfig {
         let Ok(text) = std::fs::read_to_string(&path) else {
             return Self::default();
         };
-        parse_config(&text).unwrap_or_default()
+        parse_config(&text)
     }
 
     /// Write the config atomically-ish (create parent dir, overwrite file).
@@ -163,16 +163,16 @@ fn post_event(event: &OwnedEvent) -> Result<()> {
         .arg("--silent")
         .arg("--max-time")
         .arg("5")
-        .arg("--request")
+        .arg("-X")
         .arg("POST")
-        .arg("--header")
+        .arg("-H")
         .arg("Content-Type: application/json")
         .arg("--data")
         .arg(body)
         .arg(url)
         .stdout(Stdio::null())
         .stderr(Stdio::null())
-        .status();
+        .spawn(); // fire-and-forget — don't wait for curl to finish
 
     Ok(())
 }
@@ -193,7 +193,7 @@ fn render_config(cfg: &TelemetryConfig) -> String {
     out
 }
 
-fn parse_config(text: &str) -> Option<TelemetryConfig> {
+fn parse_config(text: &str) -> TelemetryConfig {
     let mut cfg = TelemetryConfig::default();
     let mut in_telemetry = false;
 
@@ -222,7 +222,7 @@ fn parse_config(text: &str) -> Option<TelemetryConfig> {
             };
         }
     }
-    Some(cfg)
+    cfg
 }
 
 #[cfg(test)]
@@ -231,25 +231,25 @@ mod tests {
 
     #[test]
     fn parse_enabled_true() {
-        let cfg = parse_config("[telemetry]\nenabled = true\n").unwrap();
+        let cfg = parse_config("[telemetry]\nenabled = true\n");
         assert_eq!(cfg.enabled, Some(true));
     }
 
     #[test]
     fn parse_enabled_false() {
-        let cfg = parse_config("[telemetry]\nenabled = false\n").unwrap();
+        let cfg = parse_config("[telemetry]\nenabled = false\n");
         assert_eq!(cfg.enabled, Some(false));
     }
 
     #[test]
     fn parse_missing_section() {
-        let cfg = parse_config("# nothing here\n").unwrap();
+        let cfg = parse_config("# nothing here\n");
         assert_eq!(cfg.enabled, None);
     }
 
     #[test]
     fn parse_ignores_unrelated_section() {
-        let cfg = parse_config("[other]\nenabled = true\n").unwrap();
+        let cfg = parse_config("[other]\nenabled = true\n");
         assert_eq!(cfg.enabled, None);
     }
 
@@ -259,7 +259,7 @@ mod tests {
             enabled: Some(true),
         };
         let text = render_config(&before);
-        let after = parse_config(&text).unwrap();
+        let after = parse_config(&text);
         assert_eq!(after.enabled, Some(true));
     }
 
@@ -269,7 +269,7 @@ mod tests {
             enabled: Some(false),
         };
         let text = render_config(&before);
-        let after = parse_config(&text).unwrap();
+        let after = parse_config(&text);
         assert_eq!(after.enabled, Some(false));
     }
 
