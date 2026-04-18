@@ -174,7 +174,7 @@ pub struct FilterArgs {
     pub expression: String,
 
     /// Keep variants NOT matching the expression
-    #[arg(short = 'v', long)]
+    #[arg(long)]
     pub invert: bool,
 
     /// Output file (default: stdout)
@@ -230,8 +230,8 @@ fn main() -> Result<()> {
         Commands::Liftover(args) => {
             commands::liftover::run(&args, cli.quiet)?;
         }
-        Commands::Filter(_args) => {
-            eprintln!("filter: not yet implemented");
+        Commands::Filter(args) => {
+            commands::filter::run(&args, cli.quiet)?;
         }
         Commands::Completions(args) => {
             let mut cmd = Cli::command();
