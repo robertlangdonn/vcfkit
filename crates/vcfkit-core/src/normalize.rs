@@ -36,6 +36,9 @@ use crate::error::VcfkitError;
 // ── public config / result types ─────────────────────────────────────────────
 
 /// How to handle a mismatch between the VCF REF column and the reference FASTA.
+///
+/// Note: only the first base of REF is compared against the reference FASTA,
+/// consistent with bcftools `norm -c` behavior.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum RefCheck {
     /// Don't check REF against the reference.
@@ -55,6 +58,7 @@ pub struct NormalizeOptions {
     /// If true, left-align indels using Tan et al. 2015.
     pub left_align: bool,
     /// How to respond when the VCF REF does not match the reference FASTA.
+    /// Only the first base of REF is validated (consistent with bcftools behavior).
     pub check_ref: RefCheck,
     /// Output format to write to `writer`.
     pub output_format: crate::io::OutputFormat,
@@ -80,8 +84,8 @@ pub struct NormalizeStats {
     pub output_records: usize,
     /// Count of records whose position/REF/ALT changed during left-alignment.
     pub left_aligned: usize,
-    /// Count of multi-allelic records that were split.
-    pub split: usize,
+    /// Count of input sites that were split into biallelic records.
+    pub split_sites: usize,
     /// Count of records whose REF mismatched the reference FASTA.
     pub ref_mismatches: usize,
 }
@@ -161,7 +165,7 @@ fn process_record(
     let split_records: Vec<RecordBuf> = if options.split_multiallelics
         && record.alternate_bases().as_ref().len() > 1
     {
-        stats.split += 1;
+        stats.split_sites += 1;
         split_multiallelic(record, header)
     } else {
         vec![record.clone()]
@@ -243,7 +247,7 @@ fn left_align_record(record: &mut RecordBuf, fasta: &mut Reference) -> Result<bo
     // Trim common prefix beyond the anchor base (bcftools: keep at least 1 base
     // on each side). This is not strictly Tan 2015, but matches the tests that
     // expect a minimal anchored representation.
-    while r.len() > 1 && a.len() > 1 && r[0] == a[0] && r[1] == a[1] {
+    while r.len() > 1 && a.len() > 1 && r[0] == a[0] {
         r.remove(0);
         a.remove(0);
         pos += 1;
@@ -639,7 +643,7 @@ mod tests {
         assert_eq!(stats.input_records, 5);
         // 4 biallelic-after-split + 1 triallelic = 2+2+3+2+2 = 11 output records
         assert_eq!(stats.output_records, 11);
-        assert_eq!(stats.split, 5);
+        assert_eq!(stats.split_sites, 5);
 
         // Spot-check the first record: A -> T,G with AF=0.3,0.2 AD=50,30,20.
         let mut reader = vcf::io::Reader::new(out.as_bytes());
@@ -692,7 +696,7 @@ mod tests {
         let (_out, stats) = normalize_to_string(&input, opts);
         assert_eq!(stats.input_records, 5);
         assert_eq!(stats.output_records, 5);
-        assert_eq!(stats.split, 0);
+        assert_eq!(stats.split_sites, 0);
         assert_eq!(stats.left_aligned, 0);
     }
 
@@ -709,7 +713,7 @@ mod tests {
         };
         let (_out, stats) = normalize_to_string(&input, opts);
         assert_eq!(stats.input_records, stats.output_records);
-        assert_eq!(stats.split, 0);
+        assert_eq!(stats.split_sites, 0);
         assert_eq!(stats.left_aligned, 0);
     }
 

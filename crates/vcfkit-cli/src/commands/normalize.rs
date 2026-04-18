@@ -75,11 +75,11 @@ pub fn run(args: &NormalizeArgs, quiet: bool) -> anyhow::Result<()> {
 
     if !quiet {
         eprintln!(
-            "normalize: {} in, {} out ({} left-aligned, {} split, {} REF mismatches)",
+            "normalize: {} in, {} out ({} left-aligned, {} multi-allelic sites split, {} REF mismatches)",
             stats.input_records,
             stats.output_records,
             stats.left_aligned,
-            stats.split,
+            stats.split_sites,
             stats.ref_mismatches,
         );
     }
