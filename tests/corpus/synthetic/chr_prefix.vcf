@@ -1,0 +1,20 @@
+##fileformat=VCFv4.2
+##FILTER=<ID=PASS,Description="All filters passed">
+##contig=<ID=chr1,length=248956422>
+##contig=<ID=chr2,length=242193529>
+##contig=<ID=1,length=248956422>
+##contig=<ID=2,length=242193529>
+##contig=<ID=chrX,length=156040895>
+##contig=<ID=X,length=156040895>
+##INFO=<ID=DP,Number=1,Type=Integer,Description="Total Read Depth">
+##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">
+##FORMAT=<ID=DP,Number=1,Type=Integer,Description="Read Depth">
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT	SAMPLE1
+chr1	100	.	A	T	50	PASS	DP=30	GT:DP	0/1:30
+chr1	200	.	C	G	60	PASS	DP=40	GT:DP	1/1:40
+1	100	.	A	T	50	PASS	DP=30	GT:DP	0/1:30
+1	200	.	C	G	60	PASS	DP=40	GT:DP	1/1:40
+chr2	300	.	G	A	45	PASS	DP=35	GT:DP	0/1:35
+2	300	.	G	A	45	PASS	DP=35	GT:DP	0/1:35
+chrX	500	.	T	C	55	PASS	DP=50	GT:DP	0/1:50
+X	500	.	T	C	55	PASS	DP=50	GT:DP	0/1:50

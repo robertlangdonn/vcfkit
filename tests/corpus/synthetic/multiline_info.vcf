@@ -1,0 +1,25 @@
+##fileformat=VCFv4.2
+##FILTER=<ID=PASS,Description="All filters passed">
+##FILTER=<ID=LowQual,Description="Low quality score below threshold">
+##contig=<ID=chr1,length=248956422>
+##contig=<ID=chr17,length=83257441>
+##INFO=<ID=AF,Number=A,Type=Float,Description="Allele Frequency">
+##INFO=<ID=DP,Number=1,Type=Integer,Description="Total Read Depth">
+##INFO=<ID=MQ,Number=1,Type=Float,Description="RMS Mapping Quality">
+##INFO=<ID=CSQ,Number=.,Type=String,Description="Consequence annotation: effect|gene|transcript|impact">
+##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">
+##FORMAT=<ID=DP,Number=1,Type=Integer,Description="Read Depth">
+##FORMAT=<ID=GQ,Number=1,Type=Integer,Description="Genotype Quality">
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT	SAMPLE1
+chr1	925952	.	G	A	85	PASS	AF=0.03;DP=120;MQ=59.5;CSQ=missense_variant|AGRN|ENST00000379370|MODERATE	GT:DP:GQ	0/1:120:80
+chr1	1000000	.	T	C	42	LowQual	AF=0.12;DP=35;MQ=45.2;CSQ=synonymous_variant|KCNAB2|ENST00000378888|LOW	GT:DP:GQ	0/1:35:38
+chr1	2000000	.	A	G	92	PASS	AF=0.02;DP=200;MQ=60.0;CSQ=missense_variant|PABPC4L|ENST00000442173|MODERATE	GT:DP:GQ	0/1:200:88
+chr1	3000000	.	C	T	30	LowQual	AF=0.25;DP=20;MQ=38.5;CSQ=intron_variant|CSMD2|ENST00000435666|MODIFIER	GT:DP:GQ	0/1:20:25
+chr1	4000000	.	G	T	75	PASS	AF=0.48;DP=150;MQ=58.0;CSQ=stop_gained|PTPRU|ENST00000370837|HIGH	GT:DP:GQ	0/1:150:70
+chr17	41244936	.	A	G	99	PASS	AF=0.01;DP=300;MQ=60.0;CSQ=missense_variant|BRCA1|ENST00000357654|MODERATE	GT:DP:GQ	0/1:300:95
+chr17	41276077	.	C	T	55	PASS	AF=0.04;DP=80;MQ=57.3;CSQ=splice_region_variant|BRCA1|ENST00000357654|LOW	GT:DP:GQ	0/1:80:50
+chr17	7674220	.	T	A	88	PASS	AF=0.03;DP=180;MQ=59.8;CSQ=missense_variant|TP53|ENST00000269305|MODERATE	GT:DP:GQ	0/1:180:84
+chr17	41223094	.	G	C	20	LowQual	AF=0.40;DP=15;MQ=30.0;CSQ=intergenic_variant|.|.|MODIFIER	GT:DP:GQ	0/1:15:18
+chr1	5000000	.	T	G	66	PASS	AF=0.09;DP=100;MQ=55.0;CSQ=3_prime_UTR_variant|GRM3|ENST00000353917|MODIFIER	GT:DP:GQ	0/1:100:62
+chr17	41194312	.	A	T	78	PASS	AF=0.06;DP=140;MQ=58.5;CSQ=missense_variant|BRCA1|ENST00000357654|MODERATE	GT:DP:GQ	0/1:140:74
+chr1	6000000	.	C	A	35	LowQual	AF=0.18;DP=22;MQ=42.1;CSQ=synonymous_variant|EPHA2|ENST00000358609|LOW	GT:DP:GQ	0/1:22:30
