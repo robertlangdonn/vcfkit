@@ -12,6 +12,12 @@ categories.workspace = true
 description = "Core library for vcfkit: VCF normalize, liftover, and filter operations"
 readme = "../../README.md"
 
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[package.metadata.wasm-pack.profile.release]
+wasm-opt = false
+
 [dependencies]
 noodles = { workspace = true }
 anyhow = { workspace = true }
@@ -21,6 +27,10 @@ serde = { workspace = true }
 serde_json = { workspace = true }
 nom = { workspace = true }
 flate2 = { workspace = true }
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+wasm-bindgen = "0.2"
+console_error_panic_hook = "0.1"
 
 [dev-dependencies]
 criterion = { workspace = true }

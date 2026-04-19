@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>vcfkit WASM proof-of-concept</title>
+  <style>
+    :root {
+      --bg: #0f1117;
+      --surface: #1a1d27;
+      --border: #2d3148;
+      --accent: #5b8af7;
+      --text: #e2e4f0;
+      --muted: #7b82a3;
+      --error: #f47067;
+      --success: #57c785;
+      --font-mono: "JetBrains Mono", "Fira Mono", "Cascadia Code", monospace;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: var(--bg); color: var(--text);
+      font-family: system-ui, sans-serif; font-size: 14px; line-height: 1.6;
+      padding: 24px;
+    }
+    h1 { font-size: 20px; font-weight: 600; margin-bottom: 4px; }
+    .subtitle { color: var(--muted); font-size: 13px; margin-bottom: 24px; }
+    .subtitle a { color: var(--accent); text-decoration: none; }
+    .tabs { display: flex; gap: 2px; margin-bottom: 1px; }
+    .tab {
+      padding: 8px 20px; border-radius: 6px 6px 0 0;
+      background: var(--surface); border: 1px solid var(--border);
+      border-bottom: none; cursor: pointer; color: var(--muted);
+      font-size: 13px; transition: color 0.15s;
+    }
+    .tab:hover { color: var(--text); }
+    .tab.active { color: var(--text); background: #222538; border-color: var(--accent); }
+    .panel {
+      display: none; background: #222538;
+      border: 1px solid var(--border); border-radius: 0 6px 6px 6px; padding: 20px;
+    }
+    .panel.active { display: block; }
+    .row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px; }
+    label { display: block; font-size: 12px; color: var(--muted); margin-bottom: 6px; }
+    textarea, input[type=text] {
+      width: 100%; background: var(--surface); border: 1px solid var(--border);
+      border-radius: 6px; color: var(--text); font-family: var(--font-mono);
+      font-size: 12px; padding: 10px; resize: vertical; outline: none;
+      transition: border-color 0.15s;
+    }
+    textarea:focus, input[type=text]:focus { border-color: var(--accent); }
+    textarea { height: 200px; }
+    input[type=text] { height: 36px; }
+    .controls { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; }
+    button {
+      padding: 8px 20px; background: var(--accent); border: none; border-radius: 6px;
+      color: #fff; font-size: 13px; font-weight: 600; cursor: pointer;
+      transition: opacity 0.15s;
+    }
+    button:hover { opacity: 0.85; }
+    button:disabled { opacity: 0.4; cursor: not-allowed; }
+    .status { font-size: 12px; color: var(--muted); }
+    .status.ok { color: var(--success); }
+    .status.err { color: var(--error); }
+    .output-label { font-size: 12px; color: var(--muted); margin-bottom: 6px; }
+    .caveat { font-size: 11px; color: var(--muted); margin-top: 8px; }
+    .badge {
+      display: inline-block; padding: 2px 8px; border-radius: 4px;
+      background: #2a3060; color: var(--accent); font-size: 11px; font-weight: 600;
+    }
+    #wasm-status {
+      padding: 10px 14px; border-radius: 6px; background: var(--surface);
+      border: 1px solid var(--border); font-size: 12px; margin-bottom: 20px;
+      color: var(--muted);
+    }
+    #wasm-status.ready { border-color: var(--success); color: var(--success); }
+    #wasm-status.error { border-color: var(--error); color: var(--error); }
+  </style>
+</head>
+<body>
+
+<h1>vcfkit <span class="badge">WASM</span></h1>
+<p class="subtitle">
+  Fast VCF operations in the browser — no server, no install.
+  Powered by <a href="https://github.com/robertlangdonn/vcfkit">vcfkit-core</a> compiled to WebAssembly.
+</p>
+
+<div id="wasm-status">Loading WebAssembly module…</div>
+
+<div class="tabs">
+  <div class="tab active" onclick="switchTab('filter')">filter</div>
+  <div class="tab" onclick="switchTab('normalize')">normalize</div>
+  <div class="tab" onclick="switchTab('liftover')">liftover</div>
+</div>
+
+<!-- filter panel -->
+<div class="panel active" id="panel-filter">
+  <div class="row">
+    <div>
+      <label>VCF input</label>
+      <textarea id="filter-input" spellcheck="false">##fileformat=VCFv4.2
+##FILTER=<ID=PASS,Description="All filters passed">
+##INFO=<ID=AF,Number=A,Type=Float,Description="Allele frequency">
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO
+chr1	100	.	A	T	50	PASS	AF=0.05
+chr1	200	.	C	G	30	PASS	AF=0.001
+chr1	300	.	T	A	80	Fail	AF=0.5
+chr1	400	.	G	C	90	PASS	AF=0.003</textarea>
+    </div>
+    <div>
+      <label>Output</label>
+      <textarea id="filter-output" readonly spellcheck="false" placeholder="Output appears here…"></textarea>
+    </div>
+  </div>
+  <div class="controls">
+    <div style="flex:1">
+      <label>Expression</label>
+      <input type="text" id="filter-expr" value="INFO/AF &lt; 0.01 &amp;&amp; FILTER == 'PASS'">
+    </div>
+    <button id="filter-btn" disabled onclick="runFilter()">Run filter</button>
+    <span class="status" id="filter-status"></span>
+  </div>
+  <p class="caveat">
+    Supported fields: <code>INFO/*</code>, <code>FORMAT/*</code>, <code>CHROM</code>, <code>POS</code>, <code>QUAL</code>, <code>FILTER</code>
+    &nbsp;·&nbsp; Operators: <code>&lt; &lt;= &gt; &gt;= == != &amp;&amp; || ! ~ !~</code>
+  </p>
+</div>
+
+<!-- normalize panel -->
+<div class="panel" id="panel-normalize">
+  <div class="row">
+    <div>
+      <label>VCF input (multi-allelic will be split)</label>
+      <textarea id="normalize-input" spellcheck="false">##fileformat=VCFv4.2
+##FILTER=<ID=PASS,Description="All filters passed">
+##INFO=<ID=AF,Number=A,Type=Float,Description="Allele frequency">
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO
+chr1	100	.	A	T,C	50	PASS	AF=0.05,0.03
+chr1	200	.	G	A	30	PASS	AF=0.12</textarea>
+    </div>
+    <div>
+      <label>Output (split into biallelic records)</label>
+      <textarea id="normalize-output" readonly spellcheck="false" placeholder="Output appears here…"></textarea>
+    </div>
+  </div>
+  <div class="controls">
+    <button id="normalize-btn" disabled onclick="runNormalize()">Run normalize</button>
+    <span class="status" id="normalize-status"></span>
+  </div>
+  <p class="caveat">
+    WASM limitation: left-alignment of indels requires a reference FASTA and is not available in the browser.
+    Multi-allelic splitting is fully supported.
+  </p>
+</div>
+
+<!-- liftover panel -->
+<div class="panel" id="panel-liftover">
+  <div class="row">
+    <div>
+      <label>VCF input</label>
+      <textarea id="liftover-vcf" spellcheck="false">##fileformat=VCFv4.2
+##contig=<ID=chr1,length=248956422>
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO
+chr1	10000	.	A	T	.	.	.
+chr1	50000	.	C	G	.	.	.</textarea>
+    </div>
+    <div>
+      <label>Output</label>
+      <textarea id="liftover-output" readonly spellcheck="false" placeholder="Output appears here…"></textarea>
+    </div>
+  </div>
+  <div style="margin-bottom:16px">
+    <label>Chain file (paste UCSC .chain content)</label>
+    <textarea id="liftover-chain" style="height:120px" spellcheck="false" placeholder="Paste the contents of a UCSC .chain file here (e.g. hg19ToHg38.over.chain)…"></textarea>
+  </div>
+  <div class="controls">
+    <button id="liftover-btn" disabled onclick="runLiftover()">Run liftover</button>
+    <span class="status" id="liftover-status"></span>
+  </div>
+  <p class="caveat">
+    WASM limitation: REF validation against the target reference is skipped.
+    Unmapped records are silently dropped.
+    Download chain files from <a href="https://hgdownload.soe.ucsc.edu/goldenPath/hg19/liftOver/" style="color:var(--accent)">UCSC</a>.
+  </p>
+</div>
+
+<script type="module">
+  import init, { filter_vcf, normalize_vcf, liftover_vcf } from './public/wasm/vcfkit_core.js';
+
+  const statusEl = document.getElementById('wasm-status');
+
+  try {
+    await init();
+    statusEl.textContent = 'WebAssembly module loaded — vcfkit-core running in your browser.';
+    statusEl.classList.add('ready');
+    document.getElementById('filter-btn').disabled = false;
+    document.getElementById('normalize-btn').disabled = false;
+    document.getElementById('liftover-btn').disabled = false;
+    window._wasm = { filter_vcf, normalize_vcf, liftover_vcf };
+  } catch (e) {
+    statusEl.textContent = `Failed to load WASM: ${e.message}`;
+    statusEl.classList.add('error');
+  }
+
+  window.runFilter = function() {
+    const input = document.getElementById('filter-input').value;
+    const expr = document.getElementById('filter-expr').value;
+    const status = document.getElementById('filter-status');
+    try {
+      const result = window._wasm.filter_vcf(input, expr);
+      document.getElementById('filter-output').value = result;
+      const lines = result.split('\n').filter(l => l && !l.startsWith('#'));
+      status.textContent = `${lines.length} record(s) passed`;
+      status.className = 'status ok';
+    } catch(e) {
+      status.textContent = e.message;
+      status.className = 'status err';
+    }
+  };
+
+  window.runNormalize = function() {
+    const input = document.getElementById('normalize-input').value;
+    const status = document.getElementById('normalize-status');
+    try {
+      const result = window._wasm.normalize_vcf(input);
+      document.getElementById('normalize-output').value = result;
+      const lines = result.split('\n').filter(l => l && !l.startsWith('#'));
+      status.textContent = `${lines.length} record(s) out`;
+      status.className = 'status ok';
+    } catch(e) {
+      status.textContent = e.message;
+      status.className = 'status err';
+    }
+  };
+
+  window.runLiftover = function() {
+    const vcf = document.getElementById('liftover-vcf').value;
+    const chain = document.getElementById('liftover-chain').value;
+    const status = document.getElementById('liftover-status');
+    if (!chain.trim()) {
+      status.textContent = 'Paste a chain file first';
+      status.className = 'status err';
+      return;
+    }
+    try {
+      const encoder = new TextEncoder();
+      const result = window._wasm.liftover_vcf(vcf, encoder.encode(chain));
+      document.getElementById('liftover-output').value = result;
+      const lines = result.split('\n').filter(l => l && !l.startsWith('#'));
+      status.textContent = `${lines.length} record(s) lifted`;
+      status.className = 'status ok';
+    } catch(e) {
+      status.textContent = e.message;
+      status.className = 'status err';
+    }
+  };
+</script>
+
+<script>
+  function switchTab(name) {
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+    event.target.classList.add('active');
+    document.getElementById('panel-' + name).classList.add('active');
+  }
+</script>
+
+</body>
+</html>

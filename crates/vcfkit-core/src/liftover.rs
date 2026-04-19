@@ -508,6 +508,40 @@ pub fn liftover_with_progress<R, W, F>(
     source_ref_path: &Path,
     target_ref_path: Option<&Path>,
     options: LiftoverOptions,
+    on_record: F,
+) -> Result<LiftoverStats, VcfkitError>
+where
+    R: BufRead,
+    W: Write,
+    F: FnMut(u64),
+{
+    let chain = ChainIndex::from_path(chain_path)?;
+    let _src_fa = Reference::open(source_ref_path).ok();
+    let tgt_fa = target_ref_path.and_then(|p| Reference::open(p).ok());
+    liftover_inner(reader, writer, chain, tgt_fa, options, on_record)
+}
+
+/// Liftover using a chain file provided as a reader (for WASM / in-memory use).
+///
+/// REF validation against the target reference is skipped. `reject_file` in
+/// `options` is ignored (no filesystem access). Contig-name mismatch checking
+/// is suppressed; records that do not map will be silently dropped.
+pub fn liftover_from_chain_reader<R: BufRead, C: BufRead, W: Write>(
+    reader: R,
+    writer: W,
+    chain_reader: C,
+    options: LiftoverOptions,
+) -> Result<LiftoverStats, VcfkitError> {
+    let chain = ChainIndex::from_reader(chain_reader)?;
+    liftover_inner(reader, writer, chain, None, options, |_| {})
+}
+
+fn liftover_inner<R, W, F>(
+    reader: R,
+    writer: W,
+    chain: ChainIndex,
+    mut tgt_fa: Option<Reference>,
+    options: LiftoverOptions,
     mut on_record: F,
 ) -> Result<LiftoverStats, VcfkitError>
 where
@@ -515,26 +549,13 @@ where
     W: Write,
     F: FnMut(u64),
 {
-    // ── open inputs ──────────────────────────────────────────────────────────
-    let chain = ChainIndex::from_path(chain_path)?;
-
-    // Source reference is validated to exist (for parity with normalize) but
-    // we don't currently use it — the target reference is the authoritative
-    // validation surface. Open if present.
-    let _src_fa = Reference::open(source_ref_path).ok();
-    let mut tgt_fa = target_ref_path.and_then(|p| Reference::open(p).ok());
-
     let mut vcf_reader = vcf::io::Reader::new(reader);
     let mut header = vcf_reader
         .read_header()
         .map_err(|e| VcfkitError::Other(format!("failed to read VCF header: {e}")))?;
 
-    // Detect contig-name style mismatches (e.g. b37 "22" vs UCSC "chr22")
-    // before we start processing — all records would be silently rejected
-    // otherwise.
     check_contig_mismatch(&header, &chain, options.allow_contig_mismatch)?;
 
-    // Ensure SRC_CONTIG / SRC_POS are declared in the header if we'll emit them.
     if options.write_src_coords {
         let infos = header.infos_mut();
         infos.entry(String::from("SRC_CONTIG")).or_insert_with(|| {
@@ -558,7 +579,6 @@ where
         .write_header(&header)
         .map_err(|e| VcfkitError::Other(format!("failed to write VCF header: {e}")))?;
 
-    // Reject file writer — lazily created on first rejected record.
     let mut reject_writer: Option<vcf::io::Writer<Box<dyn Write>>> =
         if let Some(ref path) = options.reject_file {
             let file = File::create(path).map_err(|e| {
