@@ -1,0 +1,59 @@
+name: Nightly Real-World Tests
+
+on:
+  schedule:
+    # 05:00 UTC daily
+    - cron: '0 5 * * *'
+  workflow_dispatch:
+
+jobs:
+  real-world-differential:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+
+      # ── system tools ─────────────────────────────────────────────────────────
+      - name: Install bcftools + samtools
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y bcftools samtools
+          bcftools --version | head -1
+          samtools --version | head -1
+
+      # ── reference data cache ─────────────────────────────────────────────────
+      # Key includes the file list so the cache is invalidated if we add new
+      # reference files. Does NOT include file contents — checksums are verified
+      # inside the test itself.
+      - name: Cache reference data
+        id: cache-real-world
+        uses: actions/cache@v4
+        with:
+          path: tests/real_world
+          key: real-world-data-v1
+
+      # ── build vcfkit binary ──────────────────────────────────────────────────
+      - name: Build vcfkit (release)
+        run: cargo build --release -p vcfkit-cli
+
+      # ── run differential tests ───────────────────────────────────────────────
+      - name: Run real-world differential tests
+        env:
+          VCFKIT_REAL_TESTS: "1"
+        run: |
+          cargo test --release --test real_world_differential -- --nocapture --test-threads=1
+        # --test-threads=1 so that the download helper doesn't race with itself
+
+      # ── upload any diff reports ──────────────────────────────────────────────
+      - name: Upload diff artifacts on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: vcf-diff-output
+          path: |
+            /tmp/vcfkit_diff_*.txt
+          if-no-files-found: ignore
