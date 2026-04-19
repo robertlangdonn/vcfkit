@@ -17,6 +17,7 @@ use crate::FilterArgs;
 
 /// Run the filter subcommand.
 pub fn run(args: &FilterArgs, quiet: bool) -> anyhow::Result<()> {
+    super::reject_bcf_output(args.output.as_deref())?;
     // Parse the filter expression up front so CLI errors surface before we
     // open input/output files.
     let expression = FilterExpression::parse(&args.expression)

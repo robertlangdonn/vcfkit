@@ -30,6 +30,7 @@ pub fn run(args: &LiftoverArgs, quiet: bool) -> anyhow::Result<()> {
         print_known_chains();
         return Ok(());
     }
+    super::reject_bcf_output(args.output.as_deref())?;
 
     // After the early-return above, source_ref and chain are guaranteed
     // present by clap's required_unless_present attributes. target_ref is

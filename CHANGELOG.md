@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.1.5] — 2026-04-19
+
+### Fixed
+
+- **BCF output: error instead of silent VCF fallback** — `vcfkit normalize/filter/liftover -o out.bcf` previously wrote a VCF file named `.bcf` without any warning. Now returns a clear error with a bcftools workaround. BCF write support is planned for v0.2.
+
 ## [0.1.4] — 2026-04-19
 
 ### Fixed

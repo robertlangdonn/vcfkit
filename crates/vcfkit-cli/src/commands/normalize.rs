@@ -18,6 +18,7 @@ use crate::{CheckRefMode, NormalizeArgs};
 
 /// Run the normalize subcommand.
 pub fn run(args: &NormalizeArgs, quiet: bool) -> anyhow::Result<()> {
+    super::reject_bcf_output(args.output.as_deref())?;
     // Build options from CLI args.
     let options = NormalizeOptions {
         split_multiallelics: !args.no_split,
