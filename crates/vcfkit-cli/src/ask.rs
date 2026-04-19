@@ -1,15 +1,19 @@
-//! Natural-language filter translation via Anthropic Claude API.
+//! Natural-language filter translation via Anthropic's Claude API.
 //!
-//! Variant data never leaves the user's machine — the LLM sees only the VCF
-//! header schema (INFO/FORMAT field definitions and contig names) and the
-//! query text. The translated expression is validated by the existing
-//! deterministic parser before it is shown to the user or run.
+//! When a user runs `vcfkit filter --ask "<query>"`, this module translates
+//! the query into a deterministic filter expression. The expression goes
+//! through the existing parser before running, so the LLM cannot cause
+//! arbitrary behavior.
+//!
+//! The LLM sees only the VCF header schema (INFO/FORMAT definitions,
+//! contig list) and the query text. Variant data never leaves the user's
+//! machine.
 
 use std::time::Duration;
 
 use serde::{Deserialize, Serialize};
 
-pub const DEFAULT_MODEL: &str = "claude-haiku-4-5";
+pub const DEFAULT_MODEL: &str = "claude-sonnet-4-6";
 const DEFAULT_TIMEOUT_SECS: u64 = 30;
 const MAX_TOKENS: u32 = 1024;
 const API_URL: &str = "https://api.anthropic.com/v1/messages";
@@ -26,7 +30,7 @@ pub struct Translation {
 }
 
 #[derive(Debug, thiserror::Error)]
-pub enum EnglishError {
+pub enum AskError {
     #[error(
         "ANTHROPIC_API_KEY is not set.\n\
          Get a key at https://console.anthropic.com and then:\n\
@@ -117,13 +121,29 @@ struct ApiCallResult {
 
 // ── public entry point ────────────────────────────────────────────────────────
 
-/// Translate an English query into a vcfkit filter expression.
+/// Translate a natural-language query into a vcfkit filter expression.
 ///
-/// Calls the Anthropic API. If the returned expression fails to parse, retries
-/// once with the parser error appended to the prompt. Returns `Err` if both
-/// attempts produce an invalid expression.
-pub async fn translate(query: &str, schema: &HeaderSchema) -> Result<Translation, EnglishError> {
-    let api_key = std::env::var("ANTHROPIC_API_KEY").map_err(|_| EnglishError::MissingApiKey)?;
+/// Checks `VCFKIT_MOCK_TRANSLATION` first — if set, that JSON is used directly
+/// (bypasses the API entirely; useful for testing and offline use).
+///
+/// Otherwise calls the Anthropic API. If the returned expression fails to
+/// parse, retries once with the parser error appended to the prompt.
+pub async fn translate(query: &str, schema: &HeaderSchema) -> Result<Translation, AskError> {
+    // Mock path — set VCFKIT_MOCK_TRANSLATION to a JSON string to bypass the
+    // API. Useful for integration tests and offline smoke-testing.
+    if let Ok(mock_json) = std::env::var("VCFKIT_MOCK_TRANSLATION") {
+        let payload: TranslationPayload = serde_json::from_str(&mock_json)
+            .map_err(|e| AskError::ResponseParse(format!("VCFKIT_MOCK_TRANSLATION parse: {e}")))?;
+        return Ok(Translation {
+            expression: payload.expression,
+            reasoning: payload.reasoning,
+            confidence: payload.confidence,
+            caveats: payload.caveats,
+            model: "mock".to_string(),
+        });
+    }
+
+    let api_key = std::env::var("ANTHROPIC_API_KEY").map_err(|_| AskError::MissingApiKey)?;
 
     let model = std::env::var("VCFKIT_LLM_MODEL").unwrap_or_else(|_| DEFAULT_MODEL.to_string());
 
@@ -146,7 +166,6 @@ pub async fn translate(query: &str, schema: &HeaderSchema) -> Result<Translation
             model: first.model,
         }),
         Err(parser_error) => {
-            // One retry: tell the model what went wrong.
             let retry_prompt = format!(
                 "{}\n\nYour previous expression `{}` was rejected by the parser with: {}\n\
                  Please produce a corrected expression.",
@@ -162,7 +181,7 @@ pub async fn translate(query: &str, schema: &HeaderSchema) -> Result<Translation
             .await?;
             let retry_payload = parse_response(&retry.content)?;
             validate_expression(&retry_payload.expression).map_err(|e| {
-                EnglishError::InvalidTranslation {
+                AskError::InvalidTranslation {
                     expression: retry_payload.expression.clone(),
                     error: e,
                 }
@@ -186,7 +205,7 @@ async fn call_api(
     system_prompt: &str,
     user_prompt: &str,
     timeout_secs: u64,
-) -> Result<ApiCallResult, EnglishError> {
+) -> Result<ApiCallResult, AskError> {
     let client = reqwest::Client::builder()
         .timeout(Duration::from_secs(timeout_secs))
         .build()?;
@@ -212,9 +231,9 @@ async fn call_api(
         .await
         .map_err(|e| {
             if e.is_timeout() {
-                EnglishError::Timeout(timeout_secs)
+                AskError::Timeout(timeout_secs)
             } else {
-                EnglishError::NetworkError(e)
+                AskError::NetworkError(e)
             }
         })?;
 
@@ -224,20 +243,20 @@ async fn call_api(
             .text()
             .await
             .unwrap_or_else(|_| "<no body>".to_string());
-        return Err(EnglishError::ApiError { status, body });
+        return Err(AskError::ApiError { status, body });
     }
 
     let parsed: AnthropicResponse = response
         .json()
         .await
-        .map_err(|e| EnglishError::ResponseParse(e.to_string()))?;
+        .map_err(|e| AskError::ResponseParse(e.to_string()))?;
 
     let content = parsed
         .content
         .into_iter()
         .find(|b| b.block_type == "text")
         .and_then(|b| b.text)
-        .ok_or_else(|| EnglishError::ResponseParse("no text block in response".to_string()))?;
+        .ok_or_else(|| AskError::ResponseParse("no text block in response".to_string()))?;
 
     Ok(ApiCallResult {
         content,
@@ -247,29 +266,26 @@ async fn call_api(
 
 // ── response parsing ──────────────────────────────────────────────────────────
 
-fn parse_response(content: &str) -> Result<TranslationPayload, EnglishError> {
+fn parse_response(content: &str) -> Result<TranslationPayload, AskError> {
     let json_str = extract_json(content);
     serde_json::from_str(&json_str)
-        .map_err(|e| EnglishError::ResponseParse(format!("{e}; raw response: {content}")))
+        .map_err(|e| AskError::ResponseParse(format!("{e}; raw response: {content}")))
 }
 
-/// Pull a JSON object out of the response, which may be wrapped in prose or
+/// Pull a JSON object out of a response that may be wrapped in prose or
 /// markdown code fences.
 pub fn extract_json(content: &str) -> String {
     let trimmed = content.trim();
-    // Strip ```json ... ``` fences
     if let Some(stripped) = trimmed.strip_prefix("```json") {
         if let Some(end) = stripped.rfind("```") {
             return stripped[..end].trim().to_string();
         }
     }
-    // Strip ``` ... ``` fences
     if let Some(stripped) = trimmed.strip_prefix("```") {
         if let Some(end) = stripped.rfind("```") {
             return stripped[..end].trim().to_string();
         }
     }
-    // Find the first { and last } to skip surrounding prose
     if let (Some(start), Some(end)) = (trimmed.find('{'), trimmed.rfind('}')) {
         if start <= end {
             return trimmed[start..=end].to_string();
@@ -296,7 +312,7 @@ pub fn build_system_prompt(schema: &HeaderSchema) -> String {
          - Substring operators: ~ (contains) !~ (does not contain)\n\
          - Values: unquoted numbers (1.5, 42, -1), single-quoted strings ('PASS', 'chr17')\n\
          - Examples: INFO/AF < 0.01  |  QUAL > 30 && FILTER == 'PASS'  |  CHROM == 'chr1'\n\n\
-         ## Available fields in this VCF\n"
+         ## Available fields in this VCF\n",
     );
 
     if !schema.info_fields.is_empty() {
@@ -343,7 +359,7 @@ pub fn build_system_prompt(schema: &HeaderSchema) -> String {
          1. Only reference fields listed above. NEVER invent field names.\n\
          2. For multi-allelic INFO fields, any-element semantics apply automatically — INFO/AF < 0.01 matches if any allele has AF < 0.01.\n\
          3. For ambiguous thresholds (e.g. 'rare', 'high quality'), use standard genomic conventions and note them in caveats.\n\
-         4. If the query cannot be answered with available fields, explain in caveats and produce the nearest valid expression.\n\
+         4. If the query cannot be answered with available fields, explain in caveats, set confidence below 0.5, and produce the nearest valid expression.\n\
          5. expression must never be empty.\n\n\
          ## Examples\n\n\
          Query: \"rare variants\"\n\
@@ -351,7 +367,7 @@ pub fn build_system_prompt(schema: &HeaderSchema) -> String {
          Query: \"high-quality PASS variants on chromosome 17\"\n\
          {\"expression\": \"QUAL > 30 && FILTER == 'PASS' && CHROM == 'chr17'\", \"reasoning\": \"QUAL > 30 is a standard quality cutoff (Phred scale). FILTER == PASS ensures all caller filters passed.\", \"confidence\": 0.95, \"caveats\": []}\n\n\
          Query: \"missense variants in BRCA1\"\n\
-         {\"expression\": \"INFO/CSQ ~ 'missense_variant' && INFO/CSQ ~ 'BRCA1'\", \"reasoning\": \"Assumes VEP CSQ annotation. Substring match finds records where annotation contains both terms.\", \"confidence\": 0.7, \"caveats\": [\"Requires VEP INFO/CSQ annotation field.\", \"Match is substring-based and may capture related terms.\"]}\n"
+         {\"expression\": \"INFO/CSQ ~ 'missense_variant' && INFO/CSQ ~ 'BRCA1'\", \"reasoning\": \"Assumes VEP CSQ annotation. Substring match finds records where annotation contains both terms.\", \"confidence\": 0.35, \"caveats\": [\"Requires VEP INFO/CSQ annotation field.\", \"Match is substring-based and may capture related terms.\"]}\n"
     );
 
     p

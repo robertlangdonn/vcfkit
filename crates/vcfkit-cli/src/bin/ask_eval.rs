@@ -1,11 +1,11 @@
-//! Evaluation harness for the --english filter translation feature.
+//! Evaluation harness for the --ask filter translation feature.
 //!
-//! Loads tests/english_filter_corpus.yaml, runs each query through the
+//! Loads tests/ask_corpus.yaml, runs each query through the
 //! Anthropic API, and reports how many accepted expressions were matched.
 //!
 //! Usage:
 //!   ANTHROPIC_API_KEY=sk-ant-... VCFKIT_EVAL_CONFIRM=1 \
-//!     cargo run --bin english_eval
+//!     cargo run --bin ask_eval
 //!
 //! Gated behind VCFKIT_EVAL_CONFIRM=1 to prevent accidental API spend.
 
@@ -13,8 +13,8 @@ use std::time::Duration;
 
 use serde::Deserialize;
 
-#[path = "../english.rs"]
-mod english;
+#[path = "../ask.rs"]
+mod ask;
 
 #[derive(Debug, Deserialize)]
 struct CorpusEntry {
@@ -28,7 +28,7 @@ struct CorpusEntry {
 async fn main() {
     let corpus_path = concat!(
         env!("CARGO_MANIFEST_DIR"),
-        "/../../tests/english_filter_corpus.yaml"
+        "/../../tests/ask_corpus.yaml"
     );
     let corpus_text = std::fs::read_to_string(corpus_path).expect("failed to read corpus");
     let entries: Vec<CorpusEntry> =
@@ -42,7 +42,7 @@ async fn main() {
     );
     eprintln!(
         "Model:  {} (override with VCFKIT_LLM_MODEL)",
-        english::DEFAULT_MODEL
+        ask::DEFAULT_MODEL
     );
 
     let confirmed = std::env::var("VCFKIT_EVAL_CONFIRM")
@@ -56,7 +56,7 @@ async fn main() {
     }
 
     // Provide a representative schema so the model uses real field names.
-    let schema = english::HeaderSchema {
+    let schema = ask::HeaderSchema {
         info_fields: vec![
             field("AF", "A", "Float", "Allele frequency"),
             field("DP", "1", "Integer", "Total read depth"),
@@ -94,7 +94,7 @@ async fn main() {
     for (i, entry) in entries.iter().enumerate() {
         eprint!("[{}/{}] \"{}\" ... ", i + 1, entries.len(), entry.query);
 
-        match english::translate(&entry.query, &schema).await {
+        match ask::translate(&entry.query, &schema).await {
             Ok(t) => {
                 let got = normalise(&t.expression);
                 let matched = entry
@@ -146,8 +146,8 @@ async fn main() {
     }
 }
 
-fn field(id: &str, number: &str, ty: &str, description: &str) -> english::FieldDef {
-    english::FieldDef {
+fn field(id: &str, number: &str, ty: &str, description: &str) -> ask::FieldDef {
+    ask::FieldDef {
         id: id.into(),
         number: number.into(),
         ty: ty.into(),

@@ -13,21 +13,23 @@ use vcfkit_core::{
     io::OutputFormat,
 };
 
-use crate::english::{self, HeaderSchema};
+use crate::ask::{self, HeaderSchema};
 use crate::output::ProgressReporter;
 use crate::FilterArgs;
+
+const LOW_CONFIDENCE_THRESHOLD: f64 = 0.5;
 
 /// Run the filter subcommand.
 pub fn run(args: &FilterArgs, quiet: bool) -> anyhow::Result<()> {
     super::reject_bcf_output(args.output.as_deref())?;
 
-    // Determine the expression — either direct (-e) or translated (--english).
-    let expression_str: String = if let Some(query) = &args.english {
-        resolve_english(query, args, quiet)?
+    // Determine the expression — either direct (-e) or translated (--ask).
+    let expression_str: String = if let Some(query) = &args.ask {
+        resolve_ask(query, args, quiet)?
     } else {
         args.expression
             .clone()
-            .expect("clap group ensures one of -e/--english is set")
+            .expect("clap group ensures one of -e/--ask is set")
     };
 
     let expression = FilterExpression::parse(&expression_str)
@@ -100,10 +102,10 @@ pub fn run(args: &FilterArgs, quiet: bool) -> anyhow::Result<()> {
 
 /// Translate `query` to a filter expression via the Anthropic API, show it to
 /// the user for confirmation (unless `--yes`), and return the confirmed expression.
-fn resolve_english(query: &str, args: &FilterArgs, quiet: bool) -> anyhow::Result<String> {
-    // --english requires a file path — stdin can't be read twice.
+fn resolve_ask(query: &str, args: &FilterArgs, quiet: bool) -> anyhow::Result<String> {
+    // --ask requires a file path — stdin can't be read twice.
     let in_path = args.input.as_deref().ok_or_else(|| {
-        anyhow!("--english requires an input file path (stdin is not supported with --english)")
+        anyhow!("--ask requires an input file path (stdin is not supported with --ask)")
     })?;
 
     // Read the VCF header to build the schema for the LLM prompt.
@@ -132,7 +134,7 @@ fn resolve_english(query: &str, args: &FilterArgs, quiet: bool) -> anyhow::Resul
         info_fields: vcf_schema
             .info_fields
             .iter()
-            .map(|f| english::FieldDef {
+            .map(|f| ask::FieldDef {
                 id: f.id.clone(),
                 number: f.number.clone(),
                 ty: f.ty.clone(),
@@ -142,7 +144,7 @@ fn resolve_english(query: &str, args: &FilterArgs, quiet: bool) -> anyhow::Resul
         format_fields: vcf_schema
             .format_fields
             .iter()
-            .map(|f| english::FieldDef {
+            .map(|f| ask::FieldDef {
                 id: f.id.clone(),
                 number: f.number.clone(),
                 ty: f.ty.clone(),
@@ -158,7 +160,7 @@ fn resolve_english(query: &str, args: &FilterArgs, quiet: bool) -> anyhow::Resul
         .build()
         .map_err(|e| anyhow!("failed to create async runtime: {e}"))?;
     let translation = rt
-        .block_on(english::translate(query, &schema))
+        .block_on(ask::translate(query, &schema))
         .map_err(|e| anyhow!("{e}"))?;
 
     if !quiet {
@@ -167,6 +169,18 @@ fn resolve_english(query: &str, args: &FilterArgs, quiet: bool) -> anyhow::Resul
             translation.model,
             translation.confidence * 100.0
         );
+    }
+
+    // Confidence gate: block --yes on low-confidence translations unless
+    // --accept-low-confidence is also passed.
+    if translation.confidence < LOW_CONFIDENCE_THRESHOLD && args.yes && !args.accept_low_confidence
+    {
+        return Err(anyhow!(
+            "translation confidence is {:.0}% (below {}% threshold).\n\
+             Review the expression above, then re-run with --accept-low-confidence to proceed.",
+            translation.confidence * 100.0,
+            (LOW_CONFIDENCE_THRESHOLD * 100.0) as u32,
+        ));
     }
 
     // Display the translation and ask for confirmation (unless --yes).
@@ -207,7 +221,7 @@ fn resolve_english(query: &str, args: &FilterArgs, quiet: bool) -> anyhow::Resul
 /// Open `expression` in `$EDITOR`, let the user modify it, and return the
 /// edited value. Falls back to `vi` when `$EDITOR` is not set.
 fn open_in_editor(expression: String) -> anyhow::Result<String> {
-    let tmp = std::env::temp_dir().join("vcfkit_english_edit.tmp");
+    let tmp = std::env::temp_dir().join("vcfkit_ask_edit.tmp");
     std::fs::write(&tmp, &expression)
         .with_context(|| format!("failed to write temp file '{}'", tmp.display()))?;
 

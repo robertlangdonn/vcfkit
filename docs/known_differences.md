@@ -79,7 +79,31 @@ k simultaneously, then rewrite the record at P.
 
 ---
 
-## 2. No other known differences
+## 2. `--ask` low-confidence translations (v0.3.x)
+
+### Behavior
+
+When `vcfkit filter --ask` produces a translation with confidence below 50%, the
+`--yes` (non-interactive) mode exits non-zero with an error. This prevents scripts
+from silently running ambiguous queries.
+
+Add `--accept-low-confidence` to override:
+
+```bash
+vcfkit filter -a "missense variants in BRCA1" --yes --accept-low-confidence input.vcf
+```
+
+Low confidence typically indicates the query references fields not present in the VCF
+header (e.g. `CSQ` when the file has no VEP annotation), or is phrased in a way the
+model cannot translate with high certainty.
+
+### No equivalent in bcftools
+
+bcftools does not have a natural-language filter mode; this difference is vcfkit-only.
+
+---
+
+## 3. No other known differences
 
 The differential tests in `tests/normalize_test.rs` compare vcfkit output against
 `bcftools norm` on the synthetic corpus (basic SNPs, multi-allelic SNPs, unnormalized

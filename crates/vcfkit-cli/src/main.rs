@@ -8,8 +8,8 @@ use clap::{CommandFactory, Parser, Subcommand, ValueEnum};
 use clap_complete::{generate, Shell};
 use tracing_subscriber::{fmt, EnvFilter};
 
+mod ask;
 mod commands;
-mod english;
 mod output;
 mod telemetry;
 
@@ -191,7 +191,7 @@ pub struct LiftoverArgs {
 #[command(group(
     clap::ArgGroup::new("filter_source")
         .required(true)
-        .args(["expression", "english"])
+        .args(["expression", "ask"])
 ))]
 pub struct FilterArgs {
     /// Filter expression
@@ -199,12 +199,16 @@ pub struct FilterArgs {
     pub expression: Option<String>,
 
     /// Natural-language query (translated to an expression via Anthropic API)
-    #[arg(long, value_name = "QUERY", group = "filter_source")]
-    pub english: Option<String>,
+    #[arg(short = 'a', long, value_name = "QUERY", group = "filter_source")]
+    pub ask: Option<String>,
 
-    /// Skip confirmation when using --english (for scripting)
-    #[arg(long, requires = "english")]
+    /// Skip confirmation when using --ask (for scripting)
+    #[arg(long, requires = "ask")]
     pub yes: bool,
+
+    /// Proceed even when the translation confidence is below 50%
+    #[arg(long, requires = "ask")]
+    pub accept_low_confidence: bool,
 
     /// Keep variants NOT matching the expression
     #[arg(long)]

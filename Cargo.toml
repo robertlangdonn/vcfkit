@@ -3,7 +3,7 @@ resolver = "2"
 members = ["crates/vcfkit-core", "crates/vcfkit-cli"]
 
 [workspace.package]
-version = "0.3.0-alpha.1"
+version = "0.3.0-alpha.2"
 edition = "2021"
 rust-version = "1.75"
 authors = ["Prasad Khake"]

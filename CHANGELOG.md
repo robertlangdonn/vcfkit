@@ -1,5 +1,26 @@
 # Changelog
 
+## [0.3.0-alpha.2] — 2026-04-19
+
+### Changed
+
+- **`--english` renamed to `--ask`** (short flag `-a`). The old name is removed.
+- **Confidence gate**: `--ask --yes` on a translation with confidence below 50% now
+  exits non-zero with an error. Add `--accept-low-confidence` to override.
+- **Mock path for testing**: set `VCFKIT_MOCK_TRANSLATION=<json>` to bypass the API
+  entirely (useful for CI and offline smoke-testing).
+- Eval binary renamed from `english_eval` to `ask_eval`; corpus file renamed from
+  `tests/english_filter_corpus.yaml` to `tests/ask_corpus.yaml`.
+
+### Added
+
+- `--accept-low-confidence` flag: proceed with a low-confidence translation when
+  `--yes` is also set.
+- 4 integration tests in `crates/vcfkit-cli/tests/ask_gate.rs` covering the mock
+  path, confidence gate, and flag exclusivity.
+
+---
+
 ## [0.3.0-alpha.1] — 2026-04-19
 
 ### Added

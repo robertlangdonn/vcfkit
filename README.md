@@ -2,7 +2,7 @@
 
 Fast VCF toolkit for bioinformaticians. Three operations every pipeline needs — normalize, liftover, filter — as a single static binary with zero dependencies.
 
-> **Status:** v0.1.5 — early preview. Suitable for research pipelines and evaluation. Not validated for production clinical use. Known behavioral differences from bcftools are documented in [docs/known_differences.md](docs/known_differences.md).
+> **Status:** v0.3.0-alpha.2 — early preview. Suitable for research pipelines and evaluation. Not validated for production clinical use. Known behavioral differences from bcftools are documented in [docs/known_differences.md](docs/known_differences.md).
 
 On 1000 Genomes chr22 (1.1M variants), vcfkit's fast paths beat bcftools by ~4×:
 
@@ -98,6 +98,20 @@ Supported fields: `INFO/*`, `FORMAT/*`, `CHROM`, `POS`, `QUAL`, `FILTER`
 Operators: `<` `<=` `>` `>=` `==` `!=` `&&` `||` `!` `~` `!~`
 
 Multi-allelic INFO fields (e.g. `AF=0.12,0.003`) use any-element semantics — the filter matches if any value satisfies the condition.
+
+#### Natural-language filter (`--ask`)
+
+Translate plain English to a filter expression via Anthropic's Claude API:
+
+```bash
+export ANTHROPIC_API_KEY=sk-ant-...
+
+vcfkit filter --ask "rare PASS variants" input.vcf
+vcfkit filter --ask "rare PASS variants" --yes input.vcf   # skip confirmation
+vcfkit filter -a "rare PASS variants" --yes input.vcf      # short flag
+```
+
+The LLM sees only the VCF header schema (field names, types, descriptions) and your query. Variant data never leaves your machine. The translated expression is shown for review before filtering runs, unless `--yes` is passed. When confidence is below 50%, `--yes` is blocked; add `--accept-low-confidence` to override.
 
 ## Piping
 

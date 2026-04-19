@@ -41,9 +41,9 @@ When enabled, each command sends a JSON payload to a logging endpoint containing
 
 Configuration is stored in `~/.config/vcfkit/config.toml`.
 
-## Natural-language filter (`--english`)
+## Natural-language filter (`--ask`)
 
-When you use `vcfkit filter --english "..."`, one network call is made — to the
+When you use `vcfkit filter --ask "..."`, one network call is made — to the
 Anthropic API — to translate your query into a filter expression.
 
 **What is sent to Anthropic:**
@@ -67,7 +67,7 @@ The expression is shown to you before any filtering runs, unless `--yes` is pass
 
 ### Key requirement
 
-`--english` requires `ANTHROPIC_API_KEY` to be set. If it is not set, the command
+`--ask` requires `ANTHROPIC_API_KEY` to be set. If it is not set, the command
 fails with an error and no network calls are made.
 
 Anthropic's data handling policy applies to the data sent. See
@@ -75,7 +75,7 @@ Anthropic's data handling policy applies to the data sent. See
 
 ### Disabling
 
-Simply use `-e` (expression mode) instead of `--english`. No network calls are made.
+Simply use `-e` (expression mode) instead of `--ask`. No network calls are made.
 
 ## Browser demo (vcfkit.dev)
 

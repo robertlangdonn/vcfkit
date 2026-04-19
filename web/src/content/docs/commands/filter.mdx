@@ -17,7 +17,10 @@ vcfkit filter [OPTIONS] --expression <EXPR> [INPUT]
 
 | Flag | Description |
 |------|-------------|
-| `-e, --expression <EXPR>` | Filter expression (required) |
+| `-e, --expression <EXPR>` | Filter expression (mutually exclusive with `--ask`) |
+| `-a, --ask <QUERY>` | Natural-language query — translated via Anthropic API |
+| `--yes` | Skip confirmation when using `--ask` (for scripting) |
+| `--accept-low-confidence` | Proceed even when translation confidence is below 50% |
 | `-o, --output <FILE>` | Output file (default: stdout) |
 | `-v, --invert` | Invert: keep records that do NOT match |
 | `-q, --quiet` | Suppress progress bar and stats |
@@ -105,6 +108,37 @@ bcftools view -i 'INFO/AF < 0.01 && FILTER == "PASS"' input.vcf
 
 The expression syntax is similar. Key differences: vcfkit uses single quotes for
 string literals; bcftools uses double quotes.
+
+## Natural-language filter (`--ask`)
+
+Translate plain English into a filter expression via Anthropic's Claude API:
+
+```bash
+export ANTHROPIC_API_KEY=sk-ant-...
+
+# Interactive — shows expression for review before running
+vcfkit filter --ask "rare PASS variants on chromosome 17" input.vcf
+
+# Non-interactive — skip confirmation
+vcfkit filter -a "rare PASS variants" --yes input.vcf
+
+# Override low-confidence gate
+vcfkit filter -a "missense variants in BRCA1" --yes --accept-low-confidence input.vcf
+```
+
+The LLM sees only:
+- Your query text
+- The VCF header schema (INFO/FORMAT field names, types, descriptions, contig names)
+
+Variant data (CHROM, POS, REF, ALT, genotypes) **never leaves your machine**.
+
+The translated expression is validated by vcfkit's deterministic parser before it runs.
+When confidence is below 50%, `--yes` is blocked — add `--accept-low-confidence` to proceed.
+
+`--ask` requires an input file path; stdin is not supported (the header must be readable
+without consuming the variant stream). Requires `ANTHROPIC_API_KEY`.
+
+Not available in the browser demo — `ANTHROPIC_API_KEY` cannot safely be exposed client-side.
 
 ## Performance
 
