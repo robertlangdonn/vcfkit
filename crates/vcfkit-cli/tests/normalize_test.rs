@@ -961,24 +961,10 @@ chr1\t10\t.\tA\tT,G\t50\tPASS\tDP=100\tGT:AD\t0/1:50,30,20\n";
 /// it left.
 #[test]
 fn multiallelic_indel_passes_through_unchanged() {
-    use std::io::Write as _;
-
-    // Build a synthetic reference FASTA in a temp file.
+    // Synthetic reference FASTA with a poly-A run:
     //
-    // Sequence (1-based positions):
-    //   1234567890123456789012345678901234567890  (ruler)
-    //   NNNNGAAAAAAAAAAAGCNNNN
-    //
-    // The sequence is 22 bp: N×4, G, A×11, G, C, N×4.
-    // The poly-A run spans positions 6-16 (1-based).
-    //
-    // Input VCF record: pos=9, REF=AA, ALT=AAA,A
-    //   - The insertion (AA→AAA) adds one A; the deletion (AA→A) removes one A.
-    //   - Both ALTs could be jointly shifted left into the poly-A run (toward
-    //     pos 6) by bcftools.  vcfkit must pass the record through unchanged.
-    // Sequence (1-based positions):
-    //   123456789012345678901 2  (ruler)
-    //   NNNNGAAAAAAAAAAAGCNNNN
+    //   pos: 1234567890123456789012  (1-based ruler)
+    //   seq: NNNNGAAAAAAAAAAAGCNNNN
     //
     // The sequence is 22 bp: N×4, G, A×11, G, C, N×4.
     // The poly-A run spans positions 6-16 (1-based).
@@ -1001,7 +987,6 @@ fn multiallelic_indel_passes_through_unchanged() {
     // Write the FASTA (single-line sequence for simplicity).
     {
         let mut fa = std::fs::File::create(&fa_path).expect("create temp fasta");
-        use std::io::Write as _;
         writeln!(fa, ">chr_polya").unwrap();
         fa.write_all(fasta_seq).unwrap();
         writeln!(fa).unwrap();
@@ -1011,7 +996,6 @@ fn multiallelic_indel_passes_through_unchanged() {
     // Format: name  length  offset  bases_per_line  bytes_per_line
     // ">chr_polya\n" is 10 bytes, so sequence starts at byte offset 10.
     {
-        use std::io::Write as _;
         let mut fai = std::fs::File::create(&fai_path).expect("create temp .fai");
         writeln!(
             fai,
