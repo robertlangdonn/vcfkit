@@ -3,7 +3,7 @@ resolver = "2"
 members = ["crates/vcfkit-core", "crates/vcfkit-cli"]
 
 [workspace.package]
-version = "0.1.6"
+version = "0.3.0-alpha.1"
 edition = "2021"
 rust-version = "1.75"
 authors = ["Prasad Khake"]
@@ -28,6 +28,9 @@ indicatif = "0.17"
 nom = "7"
 flate2 = "1"
 criterion = { version = "0.5", features = ["html_reports"] }
+tokio = { version = "1", features = ["rt", "rt-multi-thread", "macros"] }
+reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
+serde_yaml = "0.9"
 
 [profile.release]
 lto = "thin"

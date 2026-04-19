@@ -1,0 +1,189 @@
+# English filter translation evaluation corpus
+#
+# Each entry has:
+#   query: the natural-language input
+#   accepted_expressions: list of valid translations (any one is a pass)
+#   notes: context for human review
+#   schema_hint: optional — if set, only certain fields are available; used to
+#                test grounding (model must not invent fields)
+#
+# Run: cargo run --bin english_eval (requires ANTHROPIC_API_KEY + VCFKIT_EVAL_CONFIRM=1)
+# Target: >=85% pass rate across all cases.
+
+# ── allele frequency / rarity ─────────────────────────────────────────────────
+- query: "rare variants"
+  accepted_expressions:
+    - "INFO/AF < 0.01"
+    - "INFO/AF <= 0.01"
+  notes: "Standard threshold; either strict or non-strict is acceptable"
+
+- query: "very rare variants"
+  accepted_expressions:
+    - "INFO/AF < 0.001"
+    - "INFO/AF <= 0.001"
+  notes: "Ultra-rare = AF < 0.1%"
+
+- query: "common variants"
+  accepted_expressions:
+    - "INFO/AF > 0.05"
+    - "INFO/AF >= 0.05"
+    - "INFO/AF > 0.01"
+    - "INFO/AF >= 0.01"
+  notes: "Common is often defined as AF > 1% or > 5%"
+
+- query: "variants with allele frequency above 5%"
+  accepted_expressions:
+    - "INFO/AF > 0.05"
+    - "INFO/AF >= 0.05"
+  notes: "Explicit percentage — should map to 0.05"
+
+- query: "variants with AF between 1% and 5%"
+  accepted_expressions:
+    - "INFO/AF >= 0.01 && INFO/AF <= 0.05"
+    - "INFO/AF > 0.01 && INFO/AF < 0.05"
+    - "INFO/AF >= 0.01 && INFO/AF < 0.05"
+    - "INFO/AF > 0.01 && INFO/AF <= 0.05"
+  notes: "Range query on AF"
+
+# ── quality / FILTER ─────────────────────────────────────────────────────────
+- query: "high-quality variants"
+  accepted_expressions:
+    - "QUAL > 30"
+    - "QUAL >= 30"
+    - "QUAL > 20"
+    - "QUAL >= 20"
+  notes: "High quality = QUAL > 20 or > 30 both acceptable"
+
+- query: "PASS variants"
+  accepted_expressions:
+    - "FILTER == 'PASS'"
+  notes: "Direct FILTER match"
+
+- query: "variants that passed all filters"
+  accepted_expressions:
+    - "FILTER == 'PASS'"
+  notes: "Synonym for FILTER == PASS"
+
+- query: "variants failing QC"
+  accepted_expressions:
+    - "FILTER != 'PASS'"
+    - "!(FILTER == 'PASS')"
+  notes: "Ambiguous — could be FILTER != PASS or QUAL < threshold; negated PASS is most defensible"
+
+- query: "high-quality PASS variants"
+  accepted_expressions:
+    - "QUAL > 30 && FILTER == 'PASS'"
+    - "QUAL >= 30 && FILTER == 'PASS'"
+    - "QUAL > 20 && FILTER == 'PASS'"
+  notes: "Compound quality + filter"
+
+# ── chromosome / position ────────────────────────────────────────────────────
+- query: "variants on chromosome 17"
+  accepted_expressions:
+    - "CHROM == 'chr17'"
+    - "CHROM == '17'"
+  notes: "Either naming convention accepted"
+
+- query: "variants on chr22"
+  accepted_expressions:
+    - "CHROM == 'chr22'"
+    - "CHROM == '22'"
+  notes: "Short form with chr prefix still valid"
+
+- query: "variants in the first megabase of chromosome 1"
+  accepted_expressions:
+    - "CHROM == 'chr1' && POS <= 1000000"
+    - "CHROM == 'chr1' && POS < 1000000"
+    - "CHROM == '1' && POS <= 1000000"
+    - "CHROM == '1' && POS < 1000000"
+  notes: "Positional range — 1 Mb = 1,000,000"
+
+- query: "variants between positions 10000 and 50000"
+  accepted_expressions:
+    - "POS >= 10000 && POS <= 50000"
+    - "POS > 10000 && POS < 50000"
+    - "POS >= 10000 && POS < 50000"
+    - "POS > 10000 && POS <= 50000"
+  notes: "POS range; either boundary style accepted"
+
+# ── compound / multi-field ───────────────────────────────────────────────────
+- query: "rare PASS variants on chromosome 22"
+  accepted_expressions:
+    - "INFO/AF < 0.01 && FILTER == 'PASS' && CHROM == 'chr22'"
+    - "INFO/AF <= 0.01 && FILTER == 'PASS' && CHROM == 'chr22'"
+    - "INFO/AF < 0.01 && FILTER == 'PASS' && CHROM == '22'"
+  notes: "Three-way compound"
+
+- query: "high-quality rare variants"
+  accepted_expressions:
+    - "QUAL > 30 && INFO/AF < 0.01"
+    - "QUAL >= 30 && INFO/AF < 0.01"
+    - "QUAL > 20 && INFO/AF < 0.01"
+  notes: "Quality + frequency compound"
+
+# ── annotation / VEP-style ───────────────────────────────────────────────────
+- query: "missense variants"
+  accepted_expressions:
+    - "INFO/CSQ ~ 'missense_variant'"
+    - "INFO/CSQ ~ 'missense'"
+  notes: "VEP annotation — substring match on CSQ field"
+
+- query: "variants in BRCA1 or BRCA2"
+  accepted_expressions:
+    - "INFO/CSQ ~ 'BRCA1' || INFO/CSQ ~ 'BRCA2'"
+    - "INFO/GENE == 'BRCA1' || INFO/GENE == 'BRCA2'"
+    - "INFO/GENE ~ 'BRCA'"
+  notes: "Gene filter — several formulations valid depending on available fields"
+
+- query: "loss-of-function variants"
+  accepted_expressions:
+    - "INFO/CSQ ~ 'stop_gained' || INFO/CSQ ~ 'frameshift' || INFO/CSQ ~ 'splice'"
+    - "INFO/CSQ ~ 'stop_gained'"
+    - "INFO/LOF ~ 'HC'"
+  notes: "LoF is context-dependent; any reasonable VEP-based expression accepted"
+
+# ── FILTER-specific ───────────────────────────────────────────────────────────
+- query: "variants with low depth"
+  accepted_expressions:
+    - "FORMAT/DP < 10"
+    - "FORMAT/DP < 20"
+    - "INFO/DP < 10"
+    - "INFO/DP < 20"
+  notes: "Low depth threshold varies; any reasonable cutoff accepted"
+
+- query: "heterozygous variants"
+  accepted_expressions:
+    - "FORMAT/GT ~ '0/1'"
+    - "FORMAT/GT ~ '0|1'"
+    - "FORMAT/GT ~ '0/1' || FORMAT/GT ~ '0|1'"
+  notes: "GT field substring match"
+
+# ── edge cases / ambiguity ────────────────────────────────────────────────────
+- query: "SNPs only"
+  accepted_expressions:
+    - "INFO/SVTYPE != 'DEL' && INFO/SVTYPE != 'INS'"
+    - "INFO/VT == 'SNP'"
+    - "INFO/TYPE == 'SNP'"
+  notes: "Difficult without a VCF type field; any reasonable field-based attempt is acceptable"
+
+- query: "indels"
+  accepted_expressions:
+    - "INFO/INDEL == true"
+    - "INFO/INDEL"
+    - "INFO/VT == 'INDEL'"
+    - "INFO/TYPE == 'INDEL'"
+  notes: "Indel flag or type field"
+
+- query: "multiallelic variants"
+  accepted_expressions:
+    - "INFO/MULTI_ALLELIC == true"
+    - "INFO/MULTI_ALLELIC"
+  notes: "Hard to express purely with standard fields; flag-based is acceptable"
+
+- query: "variants with read depth above 30 and allele frequency below 5%"
+  accepted_expressions:
+    - "FORMAT/DP > 30 && INFO/AF < 0.05"
+    - "INFO/DP > 30 && INFO/AF < 0.05"
+    - "FORMAT/DP >= 30 && INFO/AF < 0.05"
+    - "FORMAT/DP >= 30 && INFO/AF <= 0.05"
+  notes: "Compound depth + AF"

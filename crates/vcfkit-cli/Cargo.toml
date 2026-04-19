@@ -16,8 +16,12 @@ readme = "../../README.md"
 name = "vcfkit"
 path = "src/main.rs"
 
+[[bin]]
+name = "english_eval"
+path = "src/bin/english_eval.rs"
+
 [dependencies]
-vcfkit-core = { version = "0.1.5", path = "../vcfkit-core" }
+vcfkit-core = { version = "0.3.0-alpha.1", path = "../vcfkit-core" }
 clap = { workspace = true }
 clap_complete = { workspace = true }
 anyhow = { workspace = true }
@@ -27,6 +31,10 @@ owo-colors = { workspace = true }
 indicatif = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
+thiserror = { workspace = true }
+tokio = { workspace = true }
+reqwest = { workspace = true }
+serde_yaml = { workspace = true }
 
 [dev-dependencies]
 tempfile = "3"

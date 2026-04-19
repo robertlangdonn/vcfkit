@@ -9,6 +9,7 @@ use clap_complete::{generate, Shell};
 use tracing_subscriber::{fmt, EnvFilter};
 
 mod commands;
+mod english;
 mod output;
 mod telemetry;
 
@@ -187,10 +188,23 @@ pub struct LiftoverArgs {
 // ---------------------------------------------------------------------------
 
 #[derive(Debug, Parser)]
+#[command(group(
+    clap::ArgGroup::new("filter_source")
+        .required(true)
+        .args(["expression", "english"])
+))]
 pub struct FilterArgs {
-    /// Filter expression (required)
-    #[arg(short = 'e', long, value_name = "EXPR", required = true)]
-    pub expression: String,
+    /// Filter expression
+    #[arg(short = 'e', long, value_name = "EXPR", group = "filter_source")]
+    pub expression: Option<String>,
+
+    /// Natural-language query (translated to an expression via Anthropic API)
+    #[arg(long, value_name = "QUERY", group = "filter_source")]
+    pub english: Option<String>,
+
+    /// Skip confirmation when using --english (for scripting)
+    #[arg(long, requires = "english")]
+    pub yes: bool,
 
     /// Keep variants NOT matching the expression
     #[arg(long)]

@@ -359,6 +359,88 @@ fn build_info_meta(header: &vcf::Header) -> HashMap<String, InfoFieldMeta> {
         .collect()
 }
 
+// ── VCF header schema extraction (used by --english CLI feature) ─────────────
+
+/// Plain-data description of a single INFO or FORMAT field.
+#[derive(Debug, Clone)]
+pub struct VcfFieldDef {
+    pub id: String,
+    pub number: String,
+    pub ty: String,
+    pub description: String,
+}
+
+/// Schema extracted from a VCF header for use in LLM prompts.
+#[derive(Debug, Clone, Default)]
+pub struct VcfHeaderSchema {
+    pub info_fields: Vec<VcfFieldDef>,
+    pub format_fields: Vec<VcfFieldDef>,
+    pub contigs: Vec<String>,
+}
+
+/// Read only the VCF header from `reader` and return a plain-data schema
+/// suitable for building LLM prompts. Variant rows are not read.
+pub fn extract_header_schema(
+    reader: impl std::io::BufRead,
+) -> Result<VcfHeaderSchema, VcfkitError> {
+    use noodles::vcf::header::record::value::map::info::Number as InfoNumber;
+
+    let mut vcf_reader = vcf::io::Reader::new(reader);
+    let header = vcf_reader
+        .read_header()
+        .map_err(|e| VcfkitError::Other(format!("failed to read VCF header: {e}")))?;
+
+    let info_fields = header
+        .infos()
+        .iter()
+        .map(|(key, map)| VcfFieldDef {
+            id: key.to_string(),
+            number: match map.number() {
+                InfoNumber::Count(n) => n.to_string(),
+                InfoNumber::AlternateBases => "A".to_string(),
+                InfoNumber::ReferenceAlternateBases => "R".to_string(),
+                InfoNumber::Samples => "G".to_string(),
+                InfoNumber::Unknown => ".".to_string(),
+            },
+            ty: format!("{:?}", map.ty()),
+            description: map.description().to_string(),
+        })
+        .collect();
+
+    let format_fields = header
+        .formats()
+        .iter()
+        .map(|(key, map)| {
+            use noodles::vcf::header::record::value::map::format::Number as FmtNumber;
+            VcfFieldDef {
+                id: key.to_string(),
+                number: match map.number() {
+                    FmtNumber::Count(n) => n.to_string(),
+                    FmtNumber::AlternateBases => "A".to_string(),
+                    FmtNumber::ReferenceAlternateBases => "R".to_string(),
+                    FmtNumber::Samples => "G".to_string(),
+                    FmtNumber::LocalAlternateBases => "LA".to_string(),
+                    FmtNumber::LocalReferenceAlternateBases => "LR".to_string(),
+                    FmtNumber::LocalSamples => "LG".to_string(),
+                    FmtNumber::Ploidy => "P".to_string(),
+                    FmtNumber::BaseModifications => "M".to_string(),
+                    FmtNumber::Unknown => ".".to_string(),
+                },
+                ty: format!("{:?}", map.ty()),
+                description: map.description().to_string(),
+            }
+        })
+        .collect();
+
+    let contigs = header.contigs().keys().map(|k| k.to_string()).collect();
+
+    Ok(VcfHeaderSchema {
+        info_fields,
+        format_fields,
+        contigs,
+    })
+}
+
 // ── fast evaluator ───────────────────────────────────────────────────────────
 
 fn eval_fast(

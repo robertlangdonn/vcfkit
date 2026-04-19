@@ -1,5 +1,54 @@
 # Changelog
 
+## [0.3.0-alpha.1] — 2026-04-19
+
+### Added
+
+- **Natural-language filter queries** via `vcfkit filter --english "..."`.
+  Translates plain English like `"rare missense variants"` into a deterministic
+  filter expression via Anthropic's Claude API, shows the expression for
+  confirmation, then runs it. `--yes` skips the prompt for scripting.
+
+  ```
+  $ vcfkit filter --english "rare PASS variants" input.vcf
+
+    Query:      rare PASS variants
+    Expression: INFO/AF < 0.01 && FILTER == 'PASS'
+    Reasoning:  Rare is conventionally AF < 1%. FILTER == PASS ensures all
+                caller filters passed.
+
+  Run this filter? [Y/n/edit]
+  ```
+
+- **`english_eval` binary** — measures translation accuracy against
+  `tests/english_filter_corpus.yaml` (25 cases). Target: ≥85% pass rate.
+  Run with `ANTHROPIC_API_KEY=... VCFKIT_EVAL_CONFIRM=1 cargo run --bin english_eval`.
+
+### Privacy
+
+The LLM receives only the VCF header schema (INFO/FORMAT field names, types,
+descriptions) and your query text. Variant data (CHROM, POS, REF, ALT,
+genotypes) never leaves your machine. The translated expression runs through
+the existing deterministic parser — the LLM cannot cause arbitrary behaviour.
+
+### Requirements
+
+- `--english` requires `ANTHROPIC_API_KEY` to be set.
+- Default model: `claude-haiku-4-5`. Override with `VCFKIT_LLM_MODEL`.
+- Default timeout: 30 s. Override with `VCFKIT_LLM_TIMEOUT_SECS`.
+- `--english` requires an input file path (stdin not supported — the header
+  must be readable without consuming the variant data stream).
+
+### CLI-only
+
+`--english` is not available in the WASM browser demo (API key cannot be
+safely exposed client-side). The demo continues to support the `-e` expression
+syntax for all three operations.
+
+### No breaking changes to `-e` / existing operations.
+
+---
+
 ## [0.1.6] — 2026-04-19
 
 ### Testing infrastructure

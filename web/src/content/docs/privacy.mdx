@@ -41,6 +41,42 @@ When enabled, each command sends a JSON payload to a logging endpoint containing
 
 Configuration is stored in `~/.config/vcfkit/config.toml`.
 
+## Natural-language filter (`--english`)
+
+When you use `vcfkit filter --english "..."`, one network call is made — to the
+Anthropic API — to translate your query into a filter expression.
+
+**What is sent to Anthropic:**
+
+- Your query text (e.g., `"rare missense variants"`)
+- The VCF header schema: INFO and FORMAT field names, types, and descriptions as
+  written in the `##INFO` and `##FORMAT` header lines
+- Contig names from `##contig` header lines
+
+**What is never sent to Anthropic:**
+
+- Variant data rows (CHROM, POS, REF, ALT, sample genotypes, etc.)
+- File paths
+- Sample identifiers
+
+The translated expression is a deterministic filter string (e.g., `INFO/AF < 0.01`)
+that runs through vcfkit's existing parser. The LLM cannot cause arbitrary behaviour
+— it can only produce a filter expression that the parser either accepts or rejects.
+
+The expression is shown to you before any filtering runs, unless `--yes` is passed.
+
+### Key requirement
+
+`--english` requires `ANTHROPIC_API_KEY` to be set. If it is not set, the command
+fails with an error and no network calls are made.
+
+Anthropic's data handling policy applies to the data sent. See
+[Anthropic's privacy policy](https://www.anthropic.com/privacy) for details.
+
+### Disabling
+
+Simply use `-e` (expression mode) instead of `--english`. No network calls are made.
+
 ## Browser demo (vcfkit.dev)
 
 **Your VCF never leaves your browser tab.**
