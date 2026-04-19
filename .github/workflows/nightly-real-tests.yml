@@ -6,6 +6,9 @@ on:
     - cron: '0 5 * * *'
   workflow_dispatch:
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 jobs:
   real-world-differential:
     runs-on: ubuntu-latest
