@@ -1054,6 +1054,68 @@ chr_polya\t9\t.\tAA\tAAA,A\t100\tPASS\t.\tGT\t0/1\n";
     assert_eq!(stats.output_records, 1);
 }
 
+// ── adversarial poly-A test using committed fixtures ─────────────────────────
+
+/// Companion to `multiallelic_indel_passes_through_unchanged` but using the
+/// committed corpus fixture files (`multiallelic_polyA.vcf` + `mini_ref_polyA.fa`).
+#[test]
+fn multiallelic_polya_fixture_passes_through_unchanged() {
+    if !bcftools_available() {
+        // This non-ignored test uses the same fixture as the ignored differential
+        // below. Ensure it always passes independently of bcftools.
+    }
+    let input = read_corpus("multiallelic_polyA.vcf");
+    let polya_ref = corpus_dir().join("mini_ref_polyA.fa");
+    let mut out = Vec::new();
+    let stats = normalize(
+        input.as_slice(),
+        &mut out,
+        &polya_ref,
+        NormalizeOptions {
+            split_multiallelics: false,
+            left_align: true,
+            check_ref: RefCheck::Ignore,
+            output_format: OutputFormat::Vcf,
+            fast: false,
+        },
+    )
+    .expect("normalize must succeed on polyA fixture");
+    let output = String::from_utf8(out).expect("valid utf-8");
+    let records = parse_vcf_records(&output);
+    assert_eq!(records.len(), 1, "one record in, one record out");
+    assert_eq!(records[0].pos, 9, "position must not be shifted");
+    assert_eq!(records[0].ref_allele, "AA");
+    assert_eq!(records[0].alt_alleles, vec!["AAA".to_string(), "A".to_string()]);
+    assert_eq!(stats.left_aligned, 0, "multi-allelic must not increment left_aligned");
+}
+
+#[test]
+#[ignore = "requires bcftools on PATH; run `cargo test -- --ignored`"]
+fn diff_multiallelic_polya_matches_bcftools_no_split() {
+    // Adversarial differential: bcftools norm -f ref -c w (no -m flag) and
+    // vcfkit normalize --no-split should both pass this multi-allelic indel
+    // through unchanged on a poly-A tract.
+    if !bcftools_available() {
+        eprintln!("skipping: bcftools not installed");
+        return;
+    }
+    let input = read_corpus("multiallelic_polyA.vcf");
+    let polya_ref = corpus_dir().join("mini_ref_polyA.fa");
+    let opts = NormalizeOptions {
+        split_multiallelics: false,
+        left_align: true,
+        check_ref: RefCheck::Ignore,
+        output_format: OutputFormat::Vcf,
+        fast: false,
+    };
+    let mut out = Vec::new();
+    normalize(input.as_slice(), &mut out, &polya_ref, opts)
+        .expect("normalize must succeed");
+    let actual = String::from_utf8(out).expect("valid utf-8");
+    let expected = run_bcftools_norm(&input, &polya_ref, &["-c", "w"]);
+    assert_vcf_eq(&expected, &actual);
+}
+
 // ── differential tests against bcftools norm ─────────────────────────────────
 //
 // These are marked `#[ignore]` because `bcftools` is not guaranteed to be on

@@ -49,6 +49,17 @@ Note: the 1000 Genomes Project chr22 data contains this exact record at position
 16404838 (`GA -> GAA,G`), which is already fully left-aligned. The divergence
 only manifests when the input record is not yet at the leftmost valid position.
 
+### Adversarial test
+
+`tests/corpus/synthetic/multiallelic_polyA.vcf` contains a multi-allelic indel
+at position 9 of a poly-A tract (ref `NNNNGAAAAAAAAAAAGCNNNN`, both ALTs shiftable
+leftward). Tests:
+- `normalize_test::multiallelic_polya_fixture_passes_through_unchanged` — always
+  runs; confirms vcfkit passes the record through unchanged.
+- `normalize_test::diff_multiallelic_polya_matches_bcftools_no_split` — `#[ignore]`,
+  requires bcftools; confirms vcfkit and `bcftools norm` (without `-m`) produce the
+  same output on this adversarial input.
+
 ### Root Cause
 
 The biallelic Tan 2015 algorithm in `vcfkit-core/src/normalize.rs` operates on a
