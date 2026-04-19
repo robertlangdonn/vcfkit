@@ -2,12 +2,14 @@
 
 Fast VCF toolkit for bioinformaticians. Three operations every pipeline needs — normalize, liftover, filter — as a single static binary with zero dependencies.
 
-On 1000 Genomes chr22 (1.1M variants), `vcfkit filter` is **4× faster** than `bcftools view`:
+On 1000 Genomes chr22 (1.1M variants), vcfkit's fast paths beat bcftools by ~4×:
 
-| Command | Mean time |
-|---------|-----------|
-| `vcfkit filter -e 'INFO/AF < 0.01'` | **390 ms** |
-| `bcftools view -i 'INFO/AF < 0.01'` | 1,635 ms |
+| Operation | vcfkit | bcftools | speedup |
+|-----------|--------|----------|---------|
+| `filter -e 'INFO/AF < 0.01'` | **422 ms** | 1,695 ms | **4.0×** |
+| `normalize --fast --no-split` | **682 ms** | 2,820 ms | **4.1×** |
+
+Measured 2026-04-19 on macOS aarch64 with bcftools 1.23.1. See [BENCHMARKS.md](BENCHMARKS.md) for full methodology.
 
 ```
 vcfkit normalize -f ref.fa input.vcf > normalized.vcf

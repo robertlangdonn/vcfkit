@@ -33,20 +33,18 @@ impl RealWorldData {
     pub fn acquire(dir: &Path) -> Result<Self, Box<dyn std::error::Error>> {
         fs::create_dir_all(dir)?;
 
-        // ── 1000 Genomes chr22 VCF (genotypes) ──────────────────────────────
+        // ── 1000 Genomes chr22 VCF (sites-only, derived) ─────────────────────
         // The per-chromosome sites-only file no longer exists on the EBI FTP.
-        // Use the genotypes VCF (~196MB gz); it includes all variant sites.
-        // URL: EBI 1000G FTP (phase3 v5b)
-        let chr22_vcf_gz = download_and_verify(
+        // We download the genotypes VCF (~196MB gz) and strip sample columns
+        // with `bcftools view -G` to produce a lean ~14MB sites VCF (~354K records).
+        let chr22_geno_gz = download_and_verify(
             dir,
             "ALL.chr22.phase3_shapeit2_mvncall_integrated_v5b.20130502.genotypes.vcf.gz",
             "https://ftp.1000genomes.ebi.ac.uk/vol1/ftp/release/20130502/\
              ALL.chr22.phase3_shapeit2_mvncall_integrated_v5b.20130502.genotypes.vcf.gz",
-            None, // checksum verified on first download; too large to embed here
+            None,
         )?;
-        let chr22_vcf = decompress_gz_if_needed(&chr22_vcf_gz, dir)?;
-        // Index the VCF if not already indexed.
-        ensure_bgzipped_and_indexed(&chr22_vcf)?;
+        let chr22_vcf = extract_sites_vcf(&chr22_geno_gz, dir)?;
 
         // ── hg19 chr22 FASTA ─────────────────────────────────────────────────
         let hg19_chr22_fa_gz = download_and_verify(
@@ -153,6 +151,35 @@ fn sha256_file(path: &Path) -> Result<String, Box<dyn std::error::Error>> {
         .unwrap_or("")
         .to_lowercase();
     Ok(hex)
+}
+
+// ── VCF sites extraction ──────────────────────────────────────────────────────
+
+/// Run `bcftools view -G` to strip sample columns from a genotypes VCF, producing
+/// a sites-only VCF. Returns the path to the sites VCF (cached if already exists).
+fn extract_sites_vcf(geno_gz: &Path, dir: &Path) -> Result<PathBuf, Box<dyn std::error::Error>> {
+    let dest = dir.join("chr22.1kg.sites.vcf");
+    if dest.exists() {
+        eprintln!("cache hit: chr22.1kg.sites.vcf");
+        return Ok(dest);
+    }
+    eprintln!(
+        "extracting sites from {} (strips sample columns) …",
+        geno_gz.display()
+    );
+    let status = Command::new("bcftools")
+        .args([
+            "view",
+            "-G",
+            geno_gz.to_str().unwrap(),
+            "-o",
+            dest.to_str().unwrap(),
+        ])
+        .status()?;
+    if !status.success() {
+        return Err("bcftools view -G failed".into());
+    }
+    Ok(dest)
 }
 
 // ── decompression ─────────────────────────────────────────────────────────────

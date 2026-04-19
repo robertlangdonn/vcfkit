@@ -30,16 +30,16 @@ Results are written to `benches/e2e/report.md`.
 
 ## E2E Results (1000 Genomes chr22, 1.1M variants, macOS aarch64)
 
-Measured 2026-04-18 with bcftools 1.23.1 and hyperfine 1.20.0.  
+Measured 2026-04-19 with bcftools 1.23.1 and hyperfine 1.20.0 (5 runs, 1 warmup).  
 Input: `ALL.chr22.phase3_shapeit2_mvncall_integrated_v5b.20130502.genotypes.vcf.gz`
-extracted to plain VCF (sites-only, 149 MB, 1,103,547 records).
+extracted to plain sites-only VCF (149 MB, 1,103,547 records).
 
 ### filter (`INFO/AF < 0.01`)
 
 | Command | Mean time | vs bcftools |
 |---------|-----------|-------------|
-| `vcfkit filter -e 'INFO/AF < 0.01'` | **390 ms** | **4.2× faster** |
-| `bcftools view -i 'INFO/AF < 0.01'` | 1,635 ms | — |
+| `vcfkit filter -e 'INFO/AF < 0.01'` | **422 ms** | **4.0× faster** |
+| `bcftools view -i 'INFO/AF < 0.01'` | 1,695 ms | — |
 
 ### filter (`FILTER == 'PASS'`)
 
@@ -48,23 +48,27 @@ extracted to plain VCF (sites-only, 149 MB, 1,103,547 records).
 | `vcfkit filter -e "FILTER == 'PASS'"` | **462 ms** | **3.5× faster** |
 | `bcftools view -f PASS` | 1,610 ms | — |
 
-### normalize (pending — v0.1.3 target)
+### normalize
 
-`vcfkit normalize --fast` was added in the post-v0.1.2 work. Benchmark numbers for
-normalize vs `bcftools norm` on chr22 have not yet been collected.
+| Command | Mean time | vs bcftools |
+|---------|-----------|-------------|
+| `vcfkit normalize --fast --no-split` | **682 ms** | **4.1× faster** |
+| `bcftools norm -m +any` | 2,820 ms | — |
+| `vcfkit normalize --no-split` (noodles path) | 6,481 ms | 2.3× slower |
 
-Expected: ~4× speedup for SNP-heavy VCFs (chr22 is ~80% SNPs), similar to filter,
-since both use the same raw-line + lazy-parse approach.
+The standard noodles path is slower because `noodles` allocates a `BTreeMap + Vec + String` per record. The `--fast` path reads raw bytes for biallelic SNPs/MNPs (≈80% of chr22) and falls back to noodles only for multi-allelics and indels.
 
-### liftover (pending)
+### liftover
 
-Liftover benchmarks require a real hg19→hg38 chain file and a chr22 hg19 VCF.
-The chain lookup is O(log n) by construction (binary search into a sorted `Vec<ChainBlock>`
-per source contig). End-to-end timing vs `bcftools +liftover` will be added in v0.1.3.
+| Command | Mean time | throughput |
+|---------|-----------|------------|
+| `vcfkit liftover` (hg19 → hg38) | 6,713 ms | ~164K rec/s |
+
+`bcftools +liftover` is a plugin that requires manual compilation and was not available for comparison. The chain lookup is O(log n) per record (binary search into a sorted `Vec<ChainBlock>` per source contig).
 
 ## How the fast paths work
 
-### filter fast path (active, 4× measured speedup)
+### filter fast path (4.0× measured speedup)
 
 The filter hot loop bypasses noodles record parsing entirely:
 
@@ -73,7 +77,7 @@ The filter hot loop bypasses noodles record parsing entirely:
 3. **Pass-through writes** — matching records are written as raw bytes without re-serialization through noodles.
 4. **INFO metadata** from the header (field types, Number=A/R/G) is extracted once before the loop and reused.
 
-### normalize fast path (active via `--fast`, benchmarks pending)
+### normalize fast path (`--fast`, 4.1× measured speedup)
 
 Same approach as filter for biallelic SNPs/MNPs (≈80% of typical VCFs):
 

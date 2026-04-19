@@ -1,5 +1,22 @@
 # Changelog
 
+## [0.1.3] — 2026-04-19
+
+### Added
+
+- **normalize `--fast` flag** — Raw-line fast path for biallelic SNPs/MNPs (≈80% of typical VCFs): reads raw bytes, skips noodles parse, falls back to full pipeline for multi-allelics and indels. Measured **4.1× faster** than `bcftools norm` on 1000G chr22 (682ms vs 2,820ms). Use with `vcfkit normalize --fast`.
+- **liftover: b37/UCSC contig name mismatch detection** — Detects when the VCF uses b37 names ("1", "2", ...) but the chain uses UCSC names ("chr1", "chr2", ...) and errors with a clear `bcftools annotate --rename-chrs` hint. Use `--allow-contig-mismatch` to suppress and process anyway.
+- **Real-world differential test harness** — `VCFKIT_REAL_TESTS=1 cargo test --test real_world_differential` runs 5 bcftools-vs-vcfkit comparisons on 1000G chr22. Gated behind an env var so it skips in normal CI. Nightly GitHub Actions workflow at `.github/workflows/nightly-real-tests.yml`.
+
+### Performance
+
+| Operation | vcfkit | bcftools | speedup |
+|-----------|--------|----------|---------|
+| `filter -e 'INFO/AF < 0.01'` | **422 ms** | 1,695 ms | **4.0×** |
+| `normalize --fast --no-split` | **682 ms** | 2,820 ms | **4.1×** |
+
+Measured on 1000G chr22, 1.1M variants, macOS aarch64, bcftools 1.23.1. See BENCHMARKS.md.
+
 ## [0.1.2] — 2026-04-18
 
 ### Fixed
