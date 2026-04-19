@@ -2,7 +2,12 @@
 
 use std::{
     fs::File,
-    io::{self, BufReader, BufWriter, Write},
+    io::{self, BufReader, BufWriter, IsTerminal, Write},
+    sync::{
+        atomic::{AtomicBool, Ordering},
+        Arc,
+    },
+    time::{Duration, Instant},
 };
 
 use anyhow::{anyhow, Context};
@@ -125,8 +130,6 @@ fn resolve_ask(query: &str, args: &FilterArgs, quiet: bool) -> anyhow::Result<St
             vcf_schema.info_fields.len(),
             vcf_schema.format_fields.len()
         );
-        eprint!("Translating query via Anthropic API...");
-        let _ = io::stderr().flush();
     }
 
     // Build HeaderSchema from vcfkit-core's VcfHeaderSchema.
@@ -154,22 +157,7 @@ fn resolve_ask(query: &str, args: &FilterArgs, quiet: bool) -> anyhow::Result<St
         contigs: vcf_schema.contigs.clone(),
     };
 
-    // Run the async translation in a single-threaded tokio runtime.
-    let rt = tokio::runtime::Builder::new_current_thread()
-        .enable_all()
-        .build()
-        .map_err(|e| anyhow!("failed to create async runtime: {e}"))?;
-    let translation = rt
-        .block_on(ask::translate(query, &schema))
-        .map_err(|e| anyhow!("{e}"))?;
-
-    if !quiet {
-        eprintln!(
-            " done (model: {}, confidence: {:.0}%)",
-            translation.model,
-            translation.confidence * 100.0
-        );
-    }
+    let translation = translate_with_spinner(query, &schema, quiet)?;
 
     // Confidence gate: block --yes on low-confidence translations unless
     // --accept-low-confidence is also passed.
@@ -216,6 +204,120 @@ fn resolve_ask(query: &str, args: &FilterArgs, quiet: bool) -> anyhow::Result<St
             "unrecognised response '{other}'; expected Y, n, or edit"
         )),
     }
+}
+
+const SPINNER_WORDS: &[&str] = &[
+    "Thinking",
+    "Brewing",
+    "Scanning",
+    "Parsing",
+    "Plotting",
+    "Translating",
+    "Drafting",
+    "Decoding",
+];
+
+/// Call the Anthropic API with a rotating-word spinner on stderr (TTY) or a
+/// plain message (pipe). Returns the completed Translation.
+fn translate_with_spinner(
+    query: &str,
+    schema: &HeaderSchema,
+    quiet: bool,
+) -> anyhow::Result<ask::Translation> {
+    use indicatif::{ProgressBar, ProgressStyle};
+
+    let is_tty = !quiet && io::stderr().is_terminal();
+
+    let pb: Option<ProgressBar> = if is_tty {
+        let bar = ProgressBar::new_spinner();
+        bar.set_style(
+            ProgressStyle::default_spinner()
+                .template("{spinner:.dim} {msg:.dim}")
+                .unwrap(),
+        );
+        bar.enable_steady_tick(Duration::from_millis(80));
+        bar.set_message(format!("{}...", SPINNER_WORDS[0]));
+        Some(bar)
+    } else {
+        if !quiet {
+            eprint!("Translating...");
+            let _ = io::stderr().flush();
+        }
+        None
+    };
+
+    // Rotate words every 1.5 s; escalate to a steady message after 10 s.
+    let stop = Arc::new(AtomicBool::new(false));
+    let rotation = {
+        let stop = Arc::clone(&stop);
+        let pb = pb.clone();
+        std::thread::spawn(move || {
+            let start = Instant::now();
+            let mut i = 0usize;
+            loop {
+                std::thread::sleep(Duration::from_millis(1500));
+                if stop.load(Ordering::Relaxed) {
+                    break;
+                }
+                if let Some(ref bar) = pb {
+                    if start.elapsed() > Duration::from_secs(10) {
+                        bar.set_message("Still working... (API is slow today)");
+                    } else {
+                        i = (i + 1) % SPINNER_WORDS.len();
+                        bar.set_message(format!("{}...", SPINNER_WORDS[i]));
+                    }
+                }
+            }
+        })
+    };
+
+    let started = Instant::now();
+    let result = tokio::runtime::Builder::new_current_thread()
+        .enable_all()
+        .build()
+        .map_err(|e| anyhow!("failed to create async runtime: {e}"))?
+        .block_on(ask::translate(query, schema))
+        .map_err(|e| anyhow!("{e}"));
+
+    stop.store(true, Ordering::Relaxed);
+    let _ = rotation.join();
+
+    let elapsed = started.elapsed();
+    match &result {
+        Ok(t) => {
+            tracing::debug!(model = %t.model, confidence = t.confidence, "translation complete");
+            let conf = t.confidence * 100.0;
+            if is_tty {
+                let bar = pb.as_ref().unwrap();
+                if conf < 50.0 {
+                    bar.finish_with_message(format!(
+                        "⚠ Translated in {:.1}s (confidence {:.0}% — review carefully)",
+                        elapsed.as_secs_f64(),
+                        conf
+                    ));
+                } else {
+                    bar.finish_with_message(format!(
+                        "✓ Translated in {:.1}s (confidence {:.0}%)",
+                        elapsed.as_secs_f64(),
+                        conf
+                    ));
+                }
+            } else if !quiet {
+                eprintln!(" done (confidence {:.0}%)", conf);
+            }
+        }
+        Err(_) => {
+            if is_tty {
+                if let Some(ref bar) = pb {
+                    bar.abandon();
+                }
+            } else if !quiet {
+                eprintln!(" failed");
+            }
+        }
+    }
+
+    result
 }
 
 /// Open `expression` in `$EDITOR`, let the user modify it, and return the

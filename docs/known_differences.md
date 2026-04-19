@@ -103,7 +103,30 @@ bcftools does not have a natural-language filter mode; this difference is vcfkit
 
 ---
 
-## 3. No other known differences
+## 3. `--ask`: schema-based grounding (v0.3.0-alpha.2+)
+
+Translations use the VCF header schema (field names, types, descriptions) but not
+example values from the data. Two failure modes result:
+
+**String value mismatch.** A translation like `INFO/varType == 'SNP'` may return
+zero records if the field is defined in the header but not populated in any record,
+or if the file uses different casing or naming (e.g. `'snp'`, `'SNV'`, `'snv'`).
+The expression is syntactically valid and grounded in the schema; only the value
+guess is wrong. Confirmed on GiAB HG001: `varType` is in the header but absent
+from all records.
+
+**Data sparsity.** A query like "variants with QUAL above 100" returns zero records
+if the VCF uses a fixed QUAL value ≤ 100. GiAB HG001 sets QUAL = 50 for all records;
+`QUAL > 100` correctly returns nothing. Similarly, a truth-set VCF may have all
+records with `FILTER = PASS`, making `FILTER != 'PASS'` return zero.
+
+Workaround: inspect example values before trusting low-record-count results. Use
+`-e` with a hand-written expression once you know the actual data values. A future
+release may surface example values to the LLM.
+
+---
+
+## 4. No other known differences
 
 The differential tests in `tests/normalize_test.rs` compare vcfkit output against
 `bcftools norm` on the synthetic corpus (basic SNPs, multi-allelic SNPs, unnormalized

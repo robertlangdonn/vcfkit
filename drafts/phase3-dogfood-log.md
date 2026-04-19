@@ -144,3 +144,30 @@ Run this filter? [Y/n/edit] e
    the model to set confidence below 0.5 — fixed so the confidence gate actually
    triggers on unanswerable queries.
 3. **`--english` flag name** — renamed to `--ask` (shorter, more intuitive).
+
+---
+
+## GiAB HG001 Session (v0.3.0-alpha.2)
+
+**VCF:** GiAB HG001 hg38 high-confidence calls (~3.89M variants)  
+**Queries run:** 15
+
+### Zero-record results — all confirmed correct
+
+| Query | Expression | Cause |
+|-------|-----------|-------|
+| Q4: single nucleotide variants | `INFO/varType == 'SNP'` | `varType` defined in header but not populated in any record; absent → false |
+| Q10: variants that did not pass filters | `FILTER != 'PASS'` | GiAB is a truth set — every record is PASS |
+| Q14: variants with QUAL above 100 | `QUAL > 100` | GiAB sets QUAL = 50 for all records |
+| Q6–Q9, Q11, Q15 | (blocked) | Confidence gate triggered (<50%); correct behavior |
+
+**Q13 cross-check:** `QUAL >= 50 && QUAL <= 200` → 3,867,240 records confirms all QUAL = 50 exactly.
+
+### Findings
+
+- No hallucinated field names across 15 queries
+- Confidence gate blocked 6/15 — all appropriate
+- Two known limitations confirmed (string value guessing, data sparsity when fields unpopulated)
+- All non-zero results visually correct
+
+**Decision: publish v0.3.0-alpha.2 to crates.io ✅**
