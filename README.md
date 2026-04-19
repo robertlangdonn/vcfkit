@@ -2,14 +2,18 @@
 
 Fast VCF toolkit for bioinformaticians. Three operations every pipeline needs — normalize, liftover, filter — as a single static binary with zero dependencies.
 
+> **Status:** v0.1.5 — early preview. Suitable for research pipelines and evaluation. Not validated for production clinical use. Known behavioral differences from bcftools are documented in [docs/known_differences.md](docs/known_differences.md).
+
 On 1000 Genomes chr22 (1.1M variants), vcfkit's fast paths beat bcftools by ~4×:
 
 | Operation | vcfkit | bcftools | speedup |
 |-----------|--------|----------|---------|
 | `filter -e 'INFO/AF < 0.01'` | **422 ms** | 1,695 ms | **4.0×** |
 | `normalize --fast --no-split` | **682 ms** | 2,820 ms | **4.1×** |
+| `normalize` (standard, with noodles) | 6,481 ms | 2,820 ms | 0.43× |
+| `liftover` | 6,713 ms | — | ~164K rec/s |
 
-Measured 2026-04-19 on macOS aarch64 with bcftools 1.23.1. See [BENCHMARKS.md](BENCHMARKS.md) for full methodology.
+Standard normalize (without `--fast`) is currently **2.3× slower** than bcftools — the fast path is opt-in because it only handles biallelic SNPs/MNPs. Liftover has no bcftools equivalent on this platform (`bcftools +liftover` plugin unavailable). Measured 2026-04-19 on macOS aarch64 with bcftools 1.23.1. See [BENCHMARKS.md](BENCHMARKS.md) for full methodology.
 
 ```
 vcfkit normalize -f ref.fa input.vcf > normalized.vcf
@@ -26,17 +30,21 @@ cargo install vcfkit-cli   # installs the `vcfkit` binary
 Or download a pre-built binary from [Releases](https://github.com/robertlangdonn/vcfkit/releases).  
 No Rust required for the pre-built binary.
 
-## Credits and prior art
+## Credits
 
 vcfkit exists because of decades of work by others:
 
-**[htslib](https://github.com/samtools/htslib)** and **[bcftools](https://github.com/samtools/bcftools)** — the reference implementations for VCF/BCF processing. Created and maintained by the Wellcome Sanger Institute; primary authorship by Heng Li (original author), Petr Danecek (bcftools lead), and hundreds of contributors over 15+ years. vcfkit's differential tests validate against bcftools output — if vcfkit and bcftools diverge, vcfkit is wrong by default.
+**[htslib](https://github.com/samtools/htslib)** and **[bcftools](https://github.com/samtools/bcftools)** — the reference implementations for VCF/BCF processing. Created and maintained by the Wellcome Sanger Institute; primary authorship by Heng Li (original author), Petr Danecek (bcftools lead), and hundreds of contributors over 15+ years. vcfkit's normalization behavior was developed by reading bcftools source. Differential tests validate against bcftools output — if vcfkit and bcftools diverge, vcfkit is wrong by default.
 
 **[noodles](https://github.com/zaeleus/noodles)** by Michael Macias — the pure-Rust VCF, BCF, FASTA, and chain file I/O primitives that vcfkit builds on. Without noodles this project would not exist in its current form.
 
 **[Tan, Abecasis, Kang 2015](https://doi.org/10.1093/bioinformatics/btv112)** — "Unified representation of genetic variants," *Bioinformatics* 31(13):2202–2204. The normalization algorithm implemented in `vcfkit normalize`.
 
 **[UCSC Genome Browser](https://genome.ucsc.edu/)** — chain files and reference FASTAs used by `vcfkit liftover`.
+
+### AI assistance
+
+Portions of this codebase were written with assistance from Claude (Anthropic). The AI wrote code; a human verified correctness and owns the result. See [CREDITS.md](CREDITS.md) for full attribution details.
 
 vcfkit's contribution: a modern CLI UX, single-binary distribution, measured performance improvements on specific hot paths via raw-line parsing (the same approach htslib uses in C, applied in Rust), and — in future releases — WASM and natural-language filter queries. It does not replace bcftools. See [BENCHMARKS.md](BENCHMARKS.md) for methodology.
 
@@ -57,7 +65,7 @@ vcfkit normalize -f reference.fasta input.vcf -o output.vcf
     --check-ref <MODE>      ignore | warn | error  (default: warn)
 ```
 
-Equivalent to `bcftools norm -f ref.fa -m-any -c w`.
+With `--no-split` (multi-allelic records preserved), equivalent to `bcftools norm -f ref.fa -c w`. Without `--no-split`, equivalent to `bcftools norm -f ref.fa -m-any -c w` for biallelic records; multi-allelic indels are currently passed through without left-alignment (see [known differences](docs/known_differences.md)).
 
 ### liftover
 
@@ -116,6 +124,10 @@ cargo build --release
 ```
 
 Requires Rust 1.75+. No C dependencies, no htslib.
+
+## Changelog
+
+See [CHANGELOG.md](CHANGELOG.md) for release history.
 
 ## License
 
