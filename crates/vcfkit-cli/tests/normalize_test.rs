@@ -1085,8 +1085,14 @@ fn multiallelic_polya_fixture_passes_through_unchanged() {
     assert_eq!(records.len(), 1, "one record in, one record out");
     assert_eq!(records[0].pos, 9, "position must not be shifted");
     assert_eq!(records[0].ref_allele, "AA");
-    assert_eq!(records[0].alt_alleles, vec!["AAA".to_string(), "A".to_string()]);
-    assert_eq!(stats.left_aligned, 0, "multi-allelic must not increment left_aligned");
+    assert_eq!(
+        records[0].alt_alleles,
+        vec!["AAA".to_string(), "A".to_string()]
+    );
+    assert_eq!(
+        stats.left_aligned, 0,
+        "multi-allelic must not increment left_aligned"
+    );
 }
 
 #[test]
@@ -1109,8 +1115,7 @@ fn diff_multiallelic_polya_matches_bcftools_no_split() {
         fast: false,
     };
     let mut out = Vec::new();
-    normalize(input.as_slice(), &mut out, &polya_ref, opts)
-        .expect("normalize must succeed");
+    normalize(input.as_slice(), &mut out, &polya_ref, opts).expect("normalize must succeed");
     let actual = String::from_utf8(out).expect("valid utf-8");
     let expected = run_bcftools_norm(&input, &polya_ref, &["-c", "w"]);
     assert_vcf_eq(&expected, &actual);
