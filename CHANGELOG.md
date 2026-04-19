@@ -1,5 +1,29 @@
 # Changelog
 
+## [0.1.6] — 2026-04-19
+
+### Testing infrastructure
+
+- WASM parity test suite expanded from 4 to 15 cases — filter now covers QUAL, CHROM,
+  INFO/AF any-element semantics, compound `&&`, FILTER field, OR (`||`), negation (`!`),
+  regex (`~`), and POS range; normalize covers multi-allelic split, SNV passthrough,
+  and Number=G PL field; liftover covers identity, partial coverage, and position offset.
+- CI verifies committed WASM artifacts in `web/public/wasm/` match a fresh `wasm-pack`
+  build. Stale WASM fails the build with a rebuild hint.
+- Nightly CI workflow runs differential tests against `bcftools` on 1000 Genomes chr22
+  (1.1M variants) for all three operations. Any divergence fails the build within 24 hours.
+- Adversarial poly-A tract multi-allelic test added with committed fixtures
+  (`tests/corpus/synthetic/multiallelic_polyA.vcf`). Confirms the `--no-split` shortcut
+  matches `bcftools norm` on a deliberately stressful input.
+
+### Documentation
+
+- `TESTING.md` — five-level validation strategy with run commands for each level.
+- `docs/known_differences.md` — expanded with adversarial test reference, root cause
+  analysis, and v0.2 fix plan. GitHub issue #1 tracks the v0.2 implementation.
+
+### No runtime behaviour changes.
+
 ## [0.1.5] — 2026-04-19
 
 ### Fixed
