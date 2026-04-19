@@ -19,7 +19,6 @@ benches/e2e/report.md
 .worktrees/
 
 # AI assistant context (not for the repo)
-CLAUDE.md
 _docs/
 
 # Real-world reference data (downloaded on first run, not committed)

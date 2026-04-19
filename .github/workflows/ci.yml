@@ -52,11 +52,49 @@ jobs:
             tests/wasm_runtime/fixtures/simple.vcf \
             > tests/wasm_runtime/expected/filter_chr1.vcf
 
+          ./target/release/vcfkit filter -e "INFO/AF < 0.25" \
+            tests/wasm_runtime/fixtures/multi_allelic.vcf \
+            > tests/wasm_runtime/expected/filter_af_lt_0.25.vcf
+
+          ./target/release/vcfkit filter -e "QUAL > 50 && FILTER == 'PASS'" \
+            tests/wasm_runtime/fixtures/simple.vcf \
+            > tests/wasm_runtime/expected/filter_qual_and_pass.vcf
+
+          ./target/release/vcfkit filter -e "FILTER == 'PASS'" \
+            tests/wasm_runtime/fixtures/filter_pass_mixed.vcf \
+            > tests/wasm_runtime/expected/filter_pass_only.vcf
+
           ./target/release/vcfkit normalize \
             --no-left-align --check-ref ignore \
             -f tests/corpus/synthetic/mini_ref.fa \
             tests/wasm_runtime/fixtures/multi_allelic.vcf \
             > tests/wasm_runtime/expected/normalize_split.vcf
+
+          ./target/release/vcfkit normalize \
+            --no-left-align --check-ref ignore \
+            -f tests/corpus/synthetic/mini_ref.fa \
+            tests/wasm_runtime/fixtures/normalize_snv_only.vcf \
+            > tests/wasm_runtime/expected/normalize_snv_passthrough.vcf
+
+          ./target/release/vcfkit normalize \
+            --no-left-align --check-ref ignore \
+            -f tests/corpus/synthetic/mini_ref.fa \
+            tests/wasm_runtime/fixtures/normalize_number_g.vcf \
+            > tests/wasm_runtime/expected/normalize_number_g_split.vcf
+
+      - name: Verify committed WASM is current
+        run: |
+          wasm-pack build crates/vcfkit-core --target web --out-dir /tmp/wasm-fresh --release
+          if ! diff -q /tmp/wasm-fresh/vcfkit_core_bg.wasm web/public/wasm/vcfkit_core_bg.wasm > /dev/null; then
+            echo "ERROR: Committed WASM (.wasm) is stale. Rebuild and commit:"
+            echo "  wasm-pack build crates/vcfkit-core --target web --out-dir ../../web/public/wasm --release"
+            exit 1
+          fi
+          if ! diff -q /tmp/wasm-fresh/vcfkit_core.js web/public/wasm/vcfkit_core.js > /dev/null; then
+            echo "ERROR: Committed WASM JS bindings are stale. Rebuild and commit:"
+            echo "  wasm-pack build crates/vcfkit-core --target web --out-dir ../../web/public/wasm --release"
+            exit 1
+          fi
 
       - name: Run WASM parity tests
         run: node tests/wasm_runtime/run.mjs

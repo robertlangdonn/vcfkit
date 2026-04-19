@@ -1,0 +1,10 @@
+##fileformat=VCFv4.2
+##INFO=<ID=AF,Number=A,Type=Float,Description="Allele Frequency">
+##INFO=<ID=PL,Number=G,Type=Integer,Description="Phred-scaled genotype likelihoods">
+##FILTER=<ID=PASS,Description="All filters passed">
+##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">
+##contig=<ID=chr1,length=248956422>
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT	SAMPLE1
+chr1	100	.	A	T	50	PASS	AF=0.3;PL=0,10,20	GT	0/1
+chr1	100	.	A	G	50	PASS	AF=0.2;PL=0,30,50	GT	0/1
+chr1	200	.	C	T	60	PASS	AF=0.4;PL=0,15,30	GT	0/1

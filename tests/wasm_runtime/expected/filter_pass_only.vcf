@@ -1,0 +1,10 @@
+##fileformat=VCFv4.2
+##FILTER=<ID=PASS,Description="All filters passed">
+##FILTER=<ID=LOWQ,Description="Low quality">
+##FILTER=<ID=LowDepth,Description="Low read depth">
+##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">
+##contig=<ID=chr1,length=248956422>
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT	SAMPLE1
+chr1	100	rs001	A	T	50	PASS	.	GT	0/1
+chr1	300	rs003	G	A	75	PASS	.	GT	0/0
+chr1	500	rs005	A	G	90	PASS	.	GT	0/1
