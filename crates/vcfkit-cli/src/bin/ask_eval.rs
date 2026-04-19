@@ -26,10 +26,7 @@ struct CorpusEntry {
 
 #[tokio::main]
 async fn main() {
-    let corpus_path = concat!(
-        env!("CARGO_MANIFEST_DIR"),
-        "/../../tests/ask_corpus.yaml"
-    );
+    let corpus_path = concat!(env!("CARGO_MANIFEST_DIR"), "/../../tests/ask_corpus.yaml");
     let corpus_text = std::fs::read_to_string(corpus_path).expect("failed to read corpus");
     let entries: Vec<CorpusEntry> =
         serde_yaml::from_str(&corpus_text).expect("failed to parse corpus YAML");
