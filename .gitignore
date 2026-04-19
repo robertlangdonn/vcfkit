@@ -24,3 +24,8 @@ _docs/
 
 # Real-world reference data (downloaded on first run, not committed)
 tests/real_world/
+
+# Environment / secrets
+.env
+.env.*
+*.env

@@ -9,7 +9,7 @@ repository.workspace = true
 homepage.workspace = true
 keywords.workspace = true
 categories.workspace = true
-description = "Fast VCF toolkit: normalize, liftover, filter — single static binary, no htslib"
+description = "Fast VCF toolkit (normalize, liftover, filter) — validated against bcftools, built on noodles"
 readme = "../../README.md"
 
 [[bin]]
@@ -27,3 +27,6 @@ owo-colors = { workspace = true }
 indicatif = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
+
+[dev-dependencies]
+tempfile = "3"

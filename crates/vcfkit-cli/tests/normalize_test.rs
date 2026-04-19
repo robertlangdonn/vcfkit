@@ -945,6 +945,131 @@ chr1\t10\t.\tA\tT,G\t50\tPASS\tDP=100\tGT:AD\t0/1:50,30,20\n";
     );
 }
 
+// ── adversarial: multi-allelic indel pass-through (known deviation from bcftools) ──
+
+/// vcfkit v0.1.x does NOT left-align multi-allelic indels: when `--no-split`
+/// (`split_multiallelics: false`) is combined with `left_align: true`, any
+/// record with more than one ALT allele passes through unchanged.
+///
+/// bcftools norm (without -m) WILL left-align such records jointly. The
+/// deviation is intentional — see docs/known_differences.md for details and
+/// the v0.2 fix plan.
+///
+/// This test creates a synthetic FASTA with a poly-A run, places a
+/// multi-allelic indel that is NOT yet at the leftmost valid position, and
+/// asserts that vcfkit emits the record unchanged while bcftools would shift
+/// it left.
+#[test]
+fn multiallelic_indel_passes_through_unchanged() {
+    use std::io::Write as _;
+
+    // Build a synthetic reference FASTA in a temp file.
+    //
+    // Sequence (1-based positions):
+    //   1234567890123456789012345678901234567890  (ruler)
+    //   NNNNGAAAAAAAAAAAGCNNNN
+    //
+    // The sequence is 22 bp: N×4, G, A×11, G, C, N×4.
+    // The poly-A run spans positions 6-16 (1-based).
+    //
+    // Input VCF record: pos=9, REF=AA, ALT=AAA,A
+    //   - The insertion (AA→AAA) adds one A; the deletion (AA→A) removes one A.
+    //   - Both ALTs could be jointly shifted left into the poly-A run (toward
+    //     pos 6) by bcftools.  vcfkit must pass the record through unchanged.
+    // Sequence (1-based positions):
+    //   123456789012345678901 2  (ruler)
+    //   NNNNGAAAAAAAAAAAGCNNNN
+    //
+    // The sequence is 22 bp: N×4, G, A×11, G, C, N×4.
+    // The poly-A run spans positions 6-16 (1-based).
+    //
+    // Input VCF record: pos=9, REF=AA, ALT=AAA,A
+    //   - The insertion (AA→AAA) adds one A; the deletion (AA→A) removes one A.
+    //   - Both ALTs could be jointly shifted left into the poly-A run (toward
+    //     pos 6) by bcftools.  vcfkit must pass the record through unchanged.
+    //
+    // Real-world equivalent (chr22, hg19 b37, from 1000 Genomes):
+    //   bcftools shifts 22:16404840 REF=AA ALT=AAA,A  →  22:16404838 REF=GA ALT=GAA,G
+    //   vcfkit passes 22:16404840 REF=AA ALT=AAA,A through unchanged.
+    let fasta_seq = b"NNNNGAAAAAAAAAAAGCNNNN";
+    let seq_len = fasta_seq.len();
+
+    let tmp_dir = std::env::temp_dir();
+    let fa_path = tmp_dir.join("vcfkit_test_multiallelic_indel.fa");
+    let fai_path = tmp_dir.join("vcfkit_test_multiallelic_indel.fa.fai");
+
+    // Write the FASTA (single-line sequence for simplicity).
+    {
+        let mut fa = std::fs::File::create(&fa_path).expect("create temp fasta");
+        use std::io::Write as _;
+        writeln!(fa, ">chr_polya").unwrap();
+        fa.write_all(fasta_seq).unwrap();
+        writeln!(fa).unwrap();
+    }
+
+    // Write the companion .fai index.
+    // Format: name  length  offset  bases_per_line  bytes_per_line
+    // ">chr_polya\n" is 10 bytes, so sequence starts at byte offset 10.
+    {
+        use std::io::Write as _;
+        let mut fai = std::fs::File::create(&fai_path).expect("create temp .fai");
+        writeln!(
+            fai,
+            "chr_polya\t{seq_len}\t10\t{seq_len}\t{}",
+            seq_len + 1, // +1 for the newline following the sequence
+        )
+        .unwrap();
+    }
+
+    // VCF: a multi-allelic indel at pos 9 (REF=AA, ALT=AAA,A).
+    // pos 9-10 in the synthetic reference = "AA" (inside the poly-A run).
+    let vcf_input: &[u8] = b"\
+##fileformat=VCFv4.2\n\
+##FILTER=<ID=PASS,Description=\"All filters passed\">\n\
+##contig=<ID=chr_polya,length=22>\n\
+##FORMAT=<ID=GT,Number=1,Type=String,Description=\"Genotype\">\n\
+#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\tFORMAT\tSAMPLE1\n\
+chr_polya\t9\t.\tAA\tAAA,A\t100\tPASS\t.\tGT\t0/1\n";
+
+    let opts = NormalizeOptions {
+        split_multiallelics: false,
+        left_align: true, // left-align is ON — but multi-allelic records are skipped
+        check_ref: RefCheck::Ignore,
+        output_format: OutputFormat::Vcf,
+        fast: false,
+    };
+
+    let mut out = Vec::new();
+    let stats = normalize(vcf_input, &mut out, &fa_path, opts).expect("normalize must succeed");
+    let output = String::from_utf8(out).expect("valid utf-8");
+
+    // Clean up temp files before asserting (cleanup happens even if assertions fail).
+    let _ = std::fs::remove_file(&fa_path);
+    let _ = std::fs::remove_file(&fai_path);
+
+    // The record must come out exactly as it went in (pass-through).
+    let records = parse_vcf_records(&output);
+    assert_eq!(records.len(), 1, "one record in, one record out");
+    assert_eq!(
+        records[0].pos, 9,
+        "vcfkit must NOT shift position for multi-allelic indel (known deviation from bcftools)"
+    );
+    assert_eq!(records[0].ref_allele, "AA", "REF must be unchanged");
+    assert_eq!(
+        records[0].alt_alleles,
+        vec!["AAA".to_string(), "A".to_string()],
+        "both ALTs must be present and unchanged"
+    );
+
+    // Stats: left_aligned must be 0 (the record was skipped, not aligned).
+    assert_eq!(
+        stats.left_aligned, 0,
+        "multi-allelic indels must not increment left_aligned counter"
+    );
+    assert_eq!(stats.input_records, 1);
+    assert_eq!(stats.output_records, 1);
+}
+
 // ── differential tests against bcftools norm ─────────────────────────────────
 //
 // These are marked `#[ignore]` because `bcftools` is not guaranteed to be on

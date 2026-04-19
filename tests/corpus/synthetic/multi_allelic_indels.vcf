@@ -1,0 +1,7 @@
+##fileformat=VCFv4.2
+##FILTER=<ID=PASS,Description="All filters passed">
+##contig=<ID=chr1,length=120>
+##INFO=<ID=DP,Number=1,Type=Integer,Description="Total Read Depth">
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO
+chr1	4	.	GA	GAA,G	100	PASS	DP=100
+chr1	4	.	GAA	GAAA,GA	100	PASS	DP=80

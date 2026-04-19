@@ -26,6 +26,20 @@ cargo install vcfkit-cli   # installs the `vcfkit` binary
 Or download a pre-built binary from [Releases](https://github.com/robertlangdonn/vcfkit/releases).  
 No Rust required for the pre-built binary.
 
+## Credits and prior art
+
+vcfkit exists because of decades of work by others:
+
+**[htslib](https://github.com/samtools/htslib)** and **[bcftools](https://github.com/samtools/bcftools)** — the reference implementations for VCF/BCF processing. Created and maintained by the Wellcome Sanger Institute; primary authorship by Heng Li (original author), Petr Danecek (bcftools lead), and hundreds of contributors over 15+ years. vcfkit's differential tests validate against bcftools output — if vcfkit and bcftools diverge, vcfkit is wrong by default.
+
+**[noodles](https://github.com/zaeleus/noodles)** by Michael Macias — the pure-Rust VCF, BCF, FASTA, and chain file I/O primitives that vcfkit builds on. Without noodles this project would not exist in its current form.
+
+**[Tan, Abecasis, Kang 2015](https://doi.org/10.1093/bioinformatics/btv112)** — "Unified representation of genetic variants," *Bioinformatics* 31(13):2202–2204. The normalization algorithm implemented in `vcfkit normalize`.
+
+**[UCSC Genome Browser](https://genome.ucsc.edu/)** — chain files and reference FASTAs used by `vcfkit liftover`.
+
+vcfkit's contribution: a modern CLI UX, single-binary distribution, measured performance improvements on specific hot paths via raw-line parsing (the same approach htslib uses in C, applied in Rust), and — in future releases — WASM and natural-language filter queries. It does not replace bcftools. See [BENCHMARKS.md](BENCHMARKS.md) for methodology.
+
 ## Usage
 
 ### normalize
