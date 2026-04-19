@@ -89,6 +89,43 @@ async function main() {
       },
     },
 
+    {
+      name: 'filter: OR expression (INFO/AF > 0.35 || QUAL > 60)',
+      run: async () => {
+        const input = await loadFile('fixtures/multi_allelic.vcf');
+        const expected = await loadFile('expected/filter_or.vcf');
+        const result = filter_vcf(input, 'INFO/AF > 0.35 || QUAL > 60');
+        return { result, expected };
+      },
+    },
+    {
+      name: 'filter: negation !(FILTER == PASS)',
+      run: async () => {
+        const input = await loadFile('fixtures/filter_pass_mixed.vcf');
+        const expected = await loadFile('expected/filter_negation.vcf');
+        const result = filter_vcf(input, "!(FILTER == 'PASS')");
+        return { result, expected };
+      },
+    },
+    {
+      name: 'filter: regex INFO/GENE ~ BRCA',
+      run: async () => {
+        const input = await loadFile('fixtures/filter_anno.vcf');
+        const expected = await loadFile('expected/filter_gene_regex.vcf');
+        const result = filter_vcf(input, "INFO/GENE ~ 'BRCA'");
+        return { result, expected };
+      },
+    },
+    {
+      name: 'filter: POS range (POS >= 200 && POS <= 300)',
+      run: async () => {
+        const input = await loadFile('fixtures/simple.vcf');
+        const expected = await loadFile('expected/filter_pos_range.vcf');
+        const result = filter_vcf(input, 'POS >= 200 && POS <= 300');
+        return { result, expected };
+      },
+    },
+
     // ── normalize ─────────────────────────────────────────────────────────────
     {
       name: 'normalize: split multi-allelic',

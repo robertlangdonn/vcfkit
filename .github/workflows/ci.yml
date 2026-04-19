@@ -64,6 +64,22 @@ jobs:
             tests/wasm_runtime/fixtures/filter_pass_mixed.vcf \
             > tests/wasm_runtime/expected/filter_pass_only.vcf
 
+          ./target/release/vcfkit filter -e "INFO/AF > 0.35 || QUAL > 60" \
+            tests/wasm_runtime/fixtures/multi_allelic.vcf \
+            > tests/wasm_runtime/expected/filter_or.vcf
+
+          ./target/release/vcfkit filter -e "!(FILTER == 'PASS')" \
+            tests/wasm_runtime/fixtures/filter_pass_mixed.vcf \
+            > tests/wasm_runtime/expected/filter_negation.vcf
+
+          ./target/release/vcfkit filter -e "INFO/GENE ~ 'BRCA'" \
+            tests/wasm_runtime/fixtures/filter_anno.vcf \
+            > tests/wasm_runtime/expected/filter_gene_regex.vcf
+
+          ./target/release/vcfkit filter -e "POS >= 200 && POS <= 300" \
+            tests/wasm_runtime/fixtures/simple.vcf \
+            > tests/wasm_runtime/expected/filter_pos_range.vcf
+
           ./target/release/vcfkit normalize \
             --no-left-align --check-ref ignore \
             -f tests/corpus/synthetic/mini_ref.fa \

@@ -1,0 +1,12 @@
+##fileformat=VCFv4.2
+##FILTER=<ID=PASS,Description="All filters passed">
+##contig=<ID=chr1,length=248956422>
+##INFO=<ID=GENE,Number=1,Type=String,Description="Gene name">
+##INFO=<ID=AF,Number=1,Type=Float,Description="Allele Frequency">
+##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT	SAMPLE1
+chr1	100	rs001	A	T	80	PASS	GENE=BRCA1;AF=0.01	GT	0/1
+chr1	200	rs002	C	G	70	PASS	GENE=TP53;AF=0.05	GT	0/1
+chr1	300	rs003	G	A	60	PASS	GENE=BRCA2;AF=0.02	GT	0/1
+chr1	400	rs004	T	C	50	PASS	GENE=EGFR;AF=0.10	GT	1/1
+chr1	500	rs005	A	G	90	PASS	GENE=BRCA1;AF=0.003	GT	0/1
