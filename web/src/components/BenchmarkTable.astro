@@ -1,0 +1,100 @@
+---
+// Static benchmark table rendered at build time.
+---
+
+<div class="bench-table-wrap">
+  <table class="bench-table">
+    <thead>
+      <tr>
+        <th>Operation</th>
+        <th>vcfkit</th>
+        <th>bcftools</th>
+        <th>Speedup</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr class="fast">
+        <td><code>filter -e 'INFO/AF &lt; 0.01'</code></td>
+        <td class="num win">422 ms</td>
+        <td class="num">1,695 ms</td>
+        <td class="badge">4.0×</td>
+      </tr>
+      <tr class="fast">
+        <td><code>normalize --fast --no-split</code></td>
+        <td class="num win">682 ms</td>
+        <td class="num">2,820 ms</td>
+        <td class="badge">4.1×</td>
+      </tr>
+      <tr>
+        <td><code>normalize</code> (standard, with noodles)</td>
+        <td class="num loss">6,481 ms</td>
+        <td class="num">2,820 ms</td>
+        <td class="badge loss">0.43×</td>
+      </tr>
+      <tr>
+        <td><code>liftover</code></td>
+        <td class="num">6,713 ms</td>
+        <td class="num">—</td>
+        <td class="badge neutral">~164K rec/s</td>
+      </tr>
+    </tbody>
+  </table>
+  <p class="bench-note">
+    1000 Genomes chr22, 1,103,547 variants · macOS aarch64 · bcftools 1.23.1 ·
+    <a href="/vcfkit/benchmarks">full methodology →</a>
+  </p>
+</div>
+
+<style>
+  .bench-table-wrap {
+    overflow-x: auto;
+    margin: 1.5rem 0;
+  }
+  .bench-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.875rem;
+  }
+  .bench-table th {
+    text-align: left;
+    padding: 8px 12px;
+    border-bottom: 2px solid var(--sl-color-gray-6);
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--sl-color-gray-3);
+    white-space: nowrap;
+  }
+  .bench-table td {
+    padding: 8px 12px;
+    border-bottom: 1px solid var(--sl-color-gray-6);
+    vertical-align: middle;
+  }
+  .bench-table tr:last-child td { border-bottom: none; }
+  .num { font-family: var(--sl-font-mono, ui-monospace, monospace); text-align: right; }
+  .win { color: var(--sl-color-green); font-weight: 700; }
+  .loss { color: var(--sl-color-orange, #f97316); }
+  .badge {
+    display: inline-block;
+    padding: 2px 10px;
+    border-radius: 4px;
+    background: color-mix(in srgb, var(--sl-color-green, #22c55e) 15%, transparent);
+    color: var(--sl-color-green, #22c55e);
+    font-weight: 700;
+    font-size: 0.85rem;
+    white-space: nowrap;
+  }
+  .badge.loss {
+    background: color-mix(in srgb, var(--sl-color-orange, #f97316) 15%, transparent);
+    color: var(--sl-color-orange, #f97316);
+  }
+  .badge.neutral {
+    background: color-mix(in srgb, var(--sl-color-gray-5) 40%, transparent);
+    color: var(--sl-color-gray-3);
+  }
+  .bench-note {
+    font-size: 0.78rem;
+    color: var(--sl-color-gray-4);
+    margin-top: 0.5rem;
+  }
+  .fast td:first-child code { background: transparent; }
+</style>

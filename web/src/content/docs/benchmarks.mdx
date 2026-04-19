@@ -1,0 +1,96 @@
+---
+title: Benchmarks
+description: vcfkit vs bcftools performance measurements on 1000 Genomes chr22.
+---
+
+import BenchmarkTable from '../../components/BenchmarkTable.astro';
+
+## Results
+
+<BenchmarkTable />
+
+## Input
+
+- **Dataset:** 1000 Genomes Project chr22 sites, extracted from the Phase 3 genotype VCF
+- **URL:** `https://ftp.1000genomes.ebi.ac.uk/vol1/ftp/release/20130502/ALL.chr22.phase3_shapeit2_mvncall_integrated_v5b.20130502.genotypes.vcf.gz`
+- **Records:** 1,103,547 variants
+- **Format:** plain VCF (uncompressed, no BGZ indexing)
+- **Variants:** predominantly biallelic SNPs + ~875 multi-allelic indel sites
+
+## Environment
+
+- **Hardware:** Apple M2 Pro (macOS aarch64)
+- **OS:** macOS 14
+- **bcftools:** 1.23.1
+- **Rust toolchain:** stable 1.75
+- **Measured:** 2026-04-19
+
+## Tool
+
+[hyperfine](https://github.com/sharkdp/hyperfine) with 3 warm-up runs and 10 timed runs.
+
+## Commands measured
+
+```bash
+# filter
+hyperfine \
+  'vcfkit filter -e "INFO/AF < 0.01" chr22_sites.vcf' \
+  'bcftools view -i "INFO/AF < 0.01" chr22_sites.vcf' \
+  --warmup 3 --runs 10
+
+# normalize --fast
+hyperfine \
+  'vcfkit normalize --fast --no-split -f hg19.fa chr22_sites.vcf' \
+  'bcftools norm --no-version -c w -f hg19.fa chr22_sites.vcf' \
+  --warmup 3 --runs 10
+
+# normalize (standard)
+hyperfine \
+  'vcfkit normalize -f hg19.fa chr22_sites.vcf' \
+  --warmup 3 --runs 10
+
+# liftover (no bcftools comparison — plugin unavailable)
+hyperfine \
+  'vcfkit liftover -s hg19.fa -t hg38.fa -c hg19ToHg38.over.chain.gz chr22_sites.vcf' \
+  --warmup 3 --runs 5
+```
+
+## Notes on standard normalize
+
+Standard `normalize` (without `--fast`) is **2.3× slower** than bcftools. This is
+expected: the fast path is a raw-line loop; the standard path parses every record
+through noodles, which is a pure-Rust parser without htslib's C optimizations.
+
+The fast path handles biallelic SNPs and MNPs. Multi-allelic records and indels
+fall back to the standard noodles path regardless of `--fast`.
+
+On typical variant call VCFs (mostly biallelic SNPs), `--fast` applies to the
+vast majority of records and the 4× speedup is representative.
+
+## Reproduce
+
+```bash
+# Download input data
+mkdir -p tests/real_world
+cd tests/real_world
+
+# Download chr22 genotypes + extract sites-only
+URL="https://ftp.1000genomes.ebi.ac.uk/vol1/ftp/release/20130502/ALL.chr22.phase3_shapeit2_mvncall_integrated_v5b.20130502.genotypes.vcf.gz"
+wget -q "$URL" -O chr22_genotypes.vcf.gz
+bcftools view -G chr22_genotypes.vcf.gz -O v -o chr22_sites.vcf
+
+# Download reference FASTA
+wget -q "https://ftp.1000genomes.ebi.ac.uk/vol1/ftp/technical/reference/human_g1k_v37.fasta.gz" \
+  -O human_g1k_v37.fasta.gz
+bgzip -d human_g1k_v37.fasta.gz
+samtools faidx human_g1k_v37.fasta
+
+cd ../..
+
+# Run benchmarks
+cargo build --release
+hyperfine \
+  './target/release/vcfkit filter -e "INFO/AF < 0.01" tests/real_world/chr22_sites.vcf' \
+  'bcftools view -i "INFO/AF < 0.01" tests/real_world/chr22_sites.vcf' \
+  --warmup 3 --runs 10
+```

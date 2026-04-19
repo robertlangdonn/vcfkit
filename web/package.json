@@ -1,0 +1,30 @@
+{
+  "name": "vcfkit-web",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build:wasm": "cd ../crates/vcfkit-core && wasm-pack build --target web --out-dir ../../web/public/wasm --release",
+    "dev": "astro dev",
+    "dev:fresh": "npm run build:wasm && astro dev",
+    "build": "astro build",
+    "build:full": "npm run build:wasm && astro build",
+    "preview": "astro preview"
+  },
+  "dependencies": {
+    "@astrojs/react": "^3",
+    "@astrojs/starlight": "^0",
+    "@codemirror/commands": "^6",
+    "@codemirror/language": "^6",
+    "@codemirror/state": "^6",
+    "@codemirror/theme-one-dark": "^6",
+    "@codemirror/view": "^6",
+    "astro": "^6",
+    "react": "^18",
+    "react-dom": "^18"
+  },
+  "devDependencies": {
+    "@types/react": "^18",
+    "@types/react-dom": "^18"
+  }
+}

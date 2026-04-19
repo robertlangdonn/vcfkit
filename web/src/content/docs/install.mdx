@@ -1,0 +1,70 @@
+---
+title: Install
+description: Install vcfkit — single static binary, zero dependencies.
+---
+
+## From crates.io (recommended)
+
+```bash
+cargo install vcfkit-cli
+vcfkit --version
+# vcfkit 0.1.5
+```
+
+Requires Rust 1.75+. Install Rust from [rustup.rs](https://rustup.rs) if needed.
+
+## Pre-built binaries
+
+Download from [GitHub Releases](https://github.com/robertlangdonn/vcfkit/releases) — no
+Rust required.
+
+Available for:
+- macOS (aarch64 / x86_64)
+- Linux (x86_64 / aarch64)
+- Windows (x86_64)
+
+```bash
+# macOS example
+curl -L https://github.com/robertlangdonn/vcfkit/releases/latest/download/vcfkit-aarch64-apple-darwin.tar.gz | tar xz
+./vcfkit --version
+```
+
+## Build from source
+
+```bash
+git clone https://github.com/robertlangdonn/vcfkit
+cd vcfkit
+cargo build --release
+./target/release/vcfkit --version
+```
+
+## Shell completions
+
+```bash
+# Bash
+vcfkit completions bash >> ~/.bashrc
+
+# Zsh
+vcfkit completions zsh >> ~/.zshrc
+
+# Fish
+vcfkit completions fish > ~/.config/fish/completions/vcfkit.fish
+```
+
+## Verify install
+
+```bash
+echo '##fileformat=VCFv4.2
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO
+chr1	100	.	A	T	.	.	.' | vcfkit filter -e 'POS > 50'
+```
+
+Expected output: the header + the variant line + a stats line.
+
+## Requirements
+
+- No runtime dependencies — single static binary
+- Reference FASTA files for `normalize` and `liftover` (not included; download from
+  [UCSC](https://hgdownload.soe.ucsc.edu/goldenPath/hg38/bigZips/) or
+  [Ensembl](https://ftp.ensembl.org/pub/current_fasta/))
+- Chain files for `liftover` (see [liftover docs](/vcfkit/commands/liftover))

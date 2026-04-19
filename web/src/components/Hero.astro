@@ -1,0 +1,168 @@
+---
+// Replaces Starlight's built-in Hero on splash pages.
+// Props are passed from Starlight but we render our own layout.
+---
+
+<section class="hero">
+  <div class="hero-inner">
+    <div class="hero-eyebrow">
+      <span class="hero-badge">v0.1.5 — research preview</span>
+    </div>
+
+    <h1 class="hero-title">vcfkit</h1>
+
+    <p class="hero-tagline">
+      Fast VCF operations. In the CLI or the browser.
+    </p>
+
+    <p class="hero-sub">
+      Normalize, liftover, and filter VCF files — measurably faster than bcftools on
+      hot paths, validated against it on 1000 Genomes data, with a browser demo that
+      never uploads your data.
+    </p>
+
+    <div class="hero-benchmarks">
+      <div class="bench-badge">
+        <span class="bench-num">4.1×</span>
+        <span class="bench-label">normalize --fast</span>
+      </div>
+      <div class="bench-divider">·</div>
+      <div class="bench-badge">
+        <span class="bench-num">4.0×</span>
+        <span class="bench-label">filter</span>
+      </div>
+      <div class="bench-divider">·</div>
+      <span class="bench-context">vs bcftools on 1.1M variants</span>
+    </div>
+
+    <div class="hero-cta">
+      <a href="#demo" class="btn-primary">Try in browser</a>
+      <a href="/vcfkit/install" class="btn-secondary">Install CLI</a>
+      <a
+        href="https://github.com/robertlangdonn/vcfkit"
+        class="btn-ghost"
+        target="_blank"
+        rel="noopener"
+      >
+        GitHub →
+      </a>
+    </div>
+  </div>
+</section>
+
+<style>
+  .hero {
+    padding: 4rem 0 2rem;
+    text-align: center;
+  }
+  .hero-inner {
+    max-width: 680px;
+    margin: 0 auto;
+    padding: 0 1rem;
+  }
+  .hero-eyebrow {
+    margin-bottom: 1rem;
+  }
+  .hero-badge {
+    display: inline-block;
+    padding: 3px 12px;
+    border-radius: 20px;
+    background: color-mix(in srgb, var(--sl-color-accent) 15%, transparent);
+    border: 1px solid color-mix(in srgb, var(--sl-color-accent) 40%, transparent);
+    color: var(--sl-color-accent);
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+  }
+  .hero-title {
+    font-size: clamp(3rem, 8vw, 5rem);
+    font-weight: 800;
+    line-height: 1.1;
+    margin: 0 0 0.75rem;
+    background: linear-gradient(135deg, var(--sl-color-white) 40%, var(--sl-color-accent));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+  .hero-tagline {
+    font-size: clamp(1.1rem, 3vw, 1.4rem);
+    font-weight: 500;
+    color: var(--sl-color-white);
+    margin: 0 0 0.75rem;
+  }
+  .hero-sub {
+    font-size: 1rem;
+    color: var(--sl-color-gray-3);
+    line-height: 1.7;
+    margin: 0 0 1.75rem;
+  }
+  .hero-benchmarks {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+    margin-bottom: 2rem;
+  }
+  .bench-badge {
+    display: flex;
+    align-items: baseline;
+    gap: 4px;
+  }
+  .bench-num {
+    font-size: 1.5rem;
+    font-weight: 800;
+    color: var(--sl-color-accent);
+  }
+  .bench-label {
+    font-size: 0.8rem;
+    color: var(--sl-color-gray-3);
+    font-family: var(--sl-font-mono, ui-monospace, monospace);
+  }
+  .bench-divider {
+    color: var(--sl-color-gray-5);
+  }
+  .bench-context {
+    font-size: 0.8rem;
+    color: var(--sl-color-gray-4);
+  }
+  .hero-cta {
+    display: flex;
+    gap: 0.75rem;
+    justify-content: center;
+    flex-wrap: wrap;
+  }
+  .btn-primary {
+    padding: 0.6rem 1.5rem;
+    background: var(--sl-color-accent);
+    color: var(--sl-color-black);
+    border-radius: 6px;
+    font-weight: 600;
+    font-size: 0.9rem;
+    text-decoration: none;
+    transition: opacity 0.15s;
+  }
+  .btn-primary:hover { opacity: 0.85; }
+  .btn-secondary {
+    padding: 0.6rem 1.5rem;
+    background: color-mix(in srgb, var(--sl-color-accent) 12%, transparent);
+    border: 1px solid color-mix(in srgb, var(--sl-color-accent) 40%, transparent);
+    color: var(--sl-color-accent);
+    border-radius: 6px;
+    font-weight: 600;
+    font-size: 0.9rem;
+    text-decoration: none;
+    transition: opacity 0.15s;
+  }
+  .btn-secondary:hover { opacity: 0.8; }
+  .btn-ghost {
+    padding: 0.6rem 1.5rem;
+    color: var(--sl-color-gray-3);
+    border-radius: 6px;
+    font-weight: 600;
+    font-size: 0.9rem;
+    text-decoration: none;
+    transition: color 0.15s;
+  }
+  .btn-ghost:hover { color: var(--sl-color-white); }
+</style>

@@ -1,0 +1,106 @@
+---
+title: liftover
+description: Convert variant coordinates between genome builds using UCSC chain files.
+---
+
+Convert variant coordinates between genome builds (e.g., hg19 → hg38) using UCSC
+chain files. Unmapped variants are written to a reject file instead of silently dropped.
+
+## Synopsis
+
+```bash
+vcfkit liftover [OPTIONS] --source <FASTA> --target <FASTA> --chain <CHAIN> [INPUT]
+```
+
+## Options
+
+| Flag | Description |
+|------|-------------|
+| `-s, --source <FASTA>` | Source genome FASTA (e.g., hg19.fa) |
+| `-t, --target <FASTA>` | Target genome FASTA (e.g., hg38.fa) |
+| `-c, --chain <CHAIN>` | UCSC chain file (`.chain` or `.chain.gz`) |
+| `-o, --output <FILE>` | Output file (default: stdout) |
+| `-r, --reject <FILE>` | Write unmapped records here (default: discard) |
+| `--write-src-coords` | Add `INFO/SRC_CONTIG` and `INFO/SRC_POS` to output |
+| `--no-fix-swapped-ref` | Reject instead of reverse-complement on `-` strand chains |
+| `--allow-contig-mismatch` | Suppress contig-name mismatch error (b37 vs UCSC naming) |
+| `-q, --quiet` | Suppress progress bar |
+
+## Examples
+
+```bash
+# hg19 → hg38
+vcfkit liftover \
+  -s hg19.fa -t hg38.fa \
+  -c hg19ToHg38.over.chain.gz \
+  input_hg19.vcf -o output_hg38.vcf
+
+# Keep rejected records
+vcfkit liftover \
+  -s hg19.fa -t hg38.fa \
+  -c hg19ToHg38.over.chain.gz \
+  -r rejects.vcf \
+  input.vcf > output.vcf
+
+# Preserve original coordinates in INFO fields
+vcfkit liftover \
+  --write-src-coords \
+  -s hg19.fa -t hg38.fa \
+  -c hg19ToHg38.over.chain.gz \
+  input.vcf
+
+# b37 VCF (chr names without "chr" prefix) with UCSC chain
+vcfkit liftover \
+  --allow-contig-mismatch \
+  -s b37.fa -t hg38.fa \
+  -c hg19ToHg38.over.chain.gz \
+  input_b37.vcf
+```
+
+## Chain files
+
+Download from UCSC:
+
+```bash
+# hg19 → hg38
+wget https://hgdownload.soe.ucsc.edu/goldenPath/hg19/liftOver/hg19ToHg38.over.chain.gz
+
+# hg38 → hg19
+wget https://hgdownload.soe.ucsc.edu/goldenPath/hg38/liftOver/hg38ToHg19.over.chain.gz
+
+# hg38 → T2T-CHM13v2.0
+wget https://hgdownload.soe.ucsc.edu/goldenPath/hg38/liftOver/hg38ToHs1.over.chain.gz
+```
+
+Or run `vcfkit liftover --list-chains` to see known URLs.
+
+## How it works
+
+1. Parse the UCSC chain file into an interval index by source contig.
+2. For each VCF record, look up the chain block covering `POS - 1` (0-based).
+3. Apply the chain offset to compute the lifted position.
+4. If the chain block has strand `-`, reverse-complement REF and ALT (unless
+   `--no-fix-swapped-ref`).
+5. Optionally validate the lifted REF against the target FASTA.
+6. Records with no covering chain block are written to the reject file (if set).
+
+## Contig name mismatches
+
+b37 VCFs use contig names like `1`, `2`, `X`. UCSC chain files use `chr1`, `chr2`,
+`chrX`. These will never match, causing all records to be rejected.
+
+Pass `--allow-contig-mismatch` to suppress the pre-flight error and proceed (all
+records will be rejected). If you want them to actually map, rename contigs in your
+VCF first:
+
+```bash
+# Rename b37 → hg19 contig names
+bcftools annotate --rename-chrs chr_name_conv.txt input_b37.vcf | \
+  vcfkit liftover -s hg19.fa -t hg38.fa -c hg19ToHg38.over.chain.gz
+```
+
+## Throughput
+
+On 1000 Genomes chr22 (1.1M records): ~164,000 records/second.
+No bcftools comparison available — the `bcftools +liftover` plugin requires manual
+compilation and was not available in the benchmark environment.

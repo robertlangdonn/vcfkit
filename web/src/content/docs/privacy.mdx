@@ -1,0 +1,78 @@
+---
+title: Privacy
+description: What vcfkit does and does not do with your data.
+---
+
+Bioinformaticians work with sensitive genomic data. This page states explicitly what
+happens to your data in each context. No vague language.
+
+## CLI (`vcfkit` binary)
+
+**Your files never leave your machine.**
+
+The binary reads from stdin or a file path you provide and writes to stdout or a file
+you specify. No network calls are made during normal operation.
+
+### Optional telemetry
+
+vcfkit supports opt-in anonymous telemetry. It is **off by default**.
+
+To enable:
+
+```bash
+vcfkit telemetry enable
+```
+
+When enabled, each command sends a JSON payload to a logging endpoint containing:
+
+- Command name (e.g., `normalize`, `filter`)
+- Input size bucket (e.g., `<1K`, `1K-100K`, `>100K` records)
+- Duration in milliseconds
+- Success or error (no error message text)
+- vcfkit version
+- OS name (not hostname)
+
+**What is never sent:**
+- File paths
+- File contents
+- Variant data
+- Sample IDs
+- Hostname or username
+
+Configuration is stored in `~/.config/vcfkit/config.toml`.
+
+## Browser demo (vcfkit.dev)
+
+**Your VCF never leaves your browser tab.**
+
+The page loads WebAssembly and JavaScript from vcfkit.dev. Once loaded, all VCF
+processing runs client-side using the WASM module. No VCF content is transmitted to
+any server.
+
+### What vcfkit.dev does collect
+
+Standard web server access logs:
+
+- IP address (anonymized in aggregate)
+- Referrer
+- User agent
+- Timestamp
+- Which page was requested
+
+This is Cloudflare Pages default behavior. No cookies are set by the vcfkit.dev site
+itself.
+
+## Future hosted features
+
+Any future features that process data server-side will be:
+
+- Clearly labeled as server-side
+- Opt-in
+- Documented on this page before launch
+
+No such features currently exist.
+
+## Contact
+
+To report a privacy concern: [open an issue](https://github.com/robertlangdonn/vcfkit/issues)
+or email the maintainer at the address in the GitHub profile.

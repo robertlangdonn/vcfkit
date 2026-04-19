@@ -6,7 +6,7 @@ on:
   pull_request:
 
 jobs:
-  test:
+  rust:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -17,3 +17,75 @@ jobs:
       - run: cargo test --workspace
       - run: cargo clippy --workspace -- -D warnings
       - run: cargo fmt --all --check
+
+  wasm:
+    runs-on: ubuntu-latest
+    needs: rust
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Install wasm-pack
+        run: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
+
+      - name: Build WASM
+        run: wasm-pack build crates/vcfkit-core --target web --out-dir ../../web/public/wasm --release
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Build CLI for expected outputs
+        run: cargo build -p vcfkit-cli --release
+
+      - name: Generate expected outputs
+        run: |
+          ./target/release/vcfkit filter -e "QUAL > 50" \
+            tests/wasm_runtime/fixtures/simple.vcf \
+            > tests/wasm_runtime/expected/filter_qual_gt_50.vcf
+
+          ./target/release/vcfkit filter -e "CHROM == 'chr1'" \
+            tests/wasm_runtime/fixtures/simple.vcf \
+            > tests/wasm_runtime/expected/filter_chr1.vcf
+
+          ./target/release/vcfkit normalize \
+            --no-left-align --check-ref ignore \
+            -f tests/corpus/synthetic/mini_ref.fa \
+            tests/wasm_runtime/fixtures/multi_allelic.vcf \
+            > tests/wasm_runtime/expected/normalize_split.vcf
+
+      - name: Run WASM parity tests
+        run: node tests/wasm_runtime/run.mjs
+
+  web-build:
+    runs-on: ubuntu-latest
+    needs: wasm
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Install wasm-pack
+        run: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install web dependencies
+        run: npm install
+        working-directory: web
+
+      - name: Build WASM for web
+        run: wasm-pack build crates/vcfkit-core --target web --out-dir ../../web/public/wasm --release
+
+      - name: Build Astro site
+        run: npm run build
+        working-directory: web

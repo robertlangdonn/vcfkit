@@ -1,0 +1,22 @@
+##fileformat=VCFv4.2
+##INFO=<ID=AF,Number=A,Type=Float,Description="Allele Frequency">
+##INFO=<ID=AD,Number=R,Type=Integer,Description="Allele Depth per allele including reference">
+##INFO=<ID=DP,Number=1,Type=Integer,Description="Total Read Depth">
+##FILTER=<ID=PASS,Description="All filters passed">
+##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">
+##FORMAT=<ID=AD,Number=R,Type=Integer,Description="Allele Depth">
+##FORMAT=<ID=GQ,Number=1,Type=Integer,Description="Genotype Quality">
+##contig=<ID=chr1,length=248956422>
+##contig=<ID=chr2,length=242193529>
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT	SAMPLE1
+chr1	100	.	A	T	55	PASS	AF=0.3;AD=50,30;DP=100	GT:AD:GQ	0/1:50,30:50
+chr1	100	.	A	G	55	PASS	AF=0.2;AD=50,20;DP=100	GT:AD:GQ	0/1:50,20:50
+chr1	250	.	C	T	62	PASS	AF=0.4;AD=60,40;DP=110	GT:AD:GQ	1/2:60,40:58
+chr1	250	.	C	A	62	PASS	AF=0.1;AD=60,10;DP=110	GT:AD:GQ	1/2:60,10:58
+chr2	300	.	G	A	70	PASS	AF=0.25;AD=50,25;DP=100	GT:AD:GQ	0/1:50,25:65
+chr2	300	.	G	C	70	PASS	AF=0.15;AD=50,15;DP=100	GT:AD:GQ	0/1:50,15:65
+chr2	300	.	G	T	70	PASS	AF=0.1;AD=50,10;DP=100	GT:AD:GQ	0/1:50,10:65
+chr2	500	.	T	C	45	PASS	AF=0.35;AD=40,35;DP=100	GT:AD:GQ	2/2:40,35:40
+chr2	500	.	T	G	45	PASS	AF=0.25;AD=40,25;DP=100	GT:AD:GQ	2/2:40,25:40
+chr1	700	.	A	G	80	PASS	AF=0.5;AD=40,50;DP=100	GT:AD:GQ	1/1:40,50:75
+chr1	700	.	A	T	80	PASS	AF=0.1;AD=40,10;DP=100	GT:AD:GQ	1/1:40,10:75

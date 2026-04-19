@@ -1,0 +1,4 @@
+# wasm-pack generates "* " here — we override it to commit the built artifacts
+# so Cloudflare Pages doesn't need wasm-pack in its build image.
+package.json
+README.md

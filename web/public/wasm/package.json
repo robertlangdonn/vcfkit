@@ -1,0 +1,31 @@
+{
+  "name": "vcfkit-core",
+  "type": "module",
+  "collaborators": [
+    "Prasad Khake"
+  ],
+  "description": "Core library for vcfkit: VCF normalize, liftover, and filter operations",
+  "version": "0.1.5",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/robertlangdonn/vcfkit"
+  },
+  "files": [
+    "vcfkit_core_bg.wasm",
+    "vcfkit_core.js",
+    "vcfkit_core.d.ts"
+  ],
+  "main": "vcfkit_core.js",
+  "homepage": "https://github.com/robertlangdonn/vcfkit",
+  "types": "vcfkit_core.d.ts",
+  "sideEffects": [
+    "./snippets/*"
+  ],
+  "keywords": [
+    "bioinformatics",
+    "vcf",
+    "genomics",
+    "variant"
+  ]
+}

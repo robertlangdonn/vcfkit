@@ -1,0 +1,76 @@
+---
+title: vcfkit
+description: Fast VCF operations — normalize, liftover, filter — as a single static binary with zero dependencies.
+template: splash
+hero:
+  tagline: Fast VCF operations. In the CLI or the browser.
+---
+
+import Demo from '../../components/Demo.tsx';
+import BenchmarkTable from '../../components/BenchmarkTable.astro';
+
+<div id="demo">
+
+## Try it
+
+<Demo client:only="react" />
+
+</div>
+
+## Why vcfkit
+
+Three things the existing tools don't give you together:
+
+- **Measurably fast.** On 1000 Genomes chr22 (1.1M variants), `filter` is **4.0×** faster
+  than bcftools and `normalize --fast` is **4.1×** faster. Standard `normalize` is
+  currently 2.3× *slower* (see [benchmarks](/vcfkit/benchmarks) for why).
+- **Honest about limitations.** Differential tests run against bcftools on real data.
+  Known deviations are [documented](/vcfkit/known-differences).
+- **Browser-native.** The same Rust core runs in the CLI and in this page.
+  Your VCF never uploads anywhere.
+
+## Benchmarks
+
+<BenchmarkTable />
+
+## Install
+
+```bash
+cargo install vcfkit-cli   # installs the vcfkit binary
+```
+
+Pre-built binaries on the [releases page](https://github.com/robertlangdonn/vcfkit/releases).
+
+## Quick usage
+
+```bash
+# Normalize: left-align indels, split multi-allelic sites
+vcfkit normalize -f reference.fasta input.vcf > normalized.vcf
+
+# Liftover: convert coordinates between builds
+vcfkit liftover -s hg19.fa -t hg38.fa -c hg19ToHg38.over.chain.gz input.vcf > lifted.vcf
+
+# Filter: keep variants matching an expression
+vcfkit filter -e "INFO/AF < 0.01 && FILTER == 'PASS'" input.vcf > rare.vcf
+
+# Compose with pipes
+cat input.vcf | vcfkit normalize -f ref.fa | vcfkit filter -e "QUAL > 30" > output.vcf
+```
+
+## FAQ
+
+**Is this a replacement for bcftools?**
+No. vcfkit does three operations; bcftools does forty. Think of it as a fast companion
+for the operations most pipelines use most.
+
+**Does the browser demo upload my data?**
+No. The Rust core is compiled to WebAssembly and runs in your browser tab.
+See [Privacy](/vcfkit/privacy).
+
+**Is it safe for clinical use?**
+No. Research use only. See the status banner in the [README](https://github.com/robertlangdonn/vcfkit).
+
+**How was it built?**
+Rust, [noodles](https://github.com/zaeleus/noodles), and significant AI assistance
+from Claude with every change human-reviewed and validated against bcftools.
+See [Credits](/vcfkit/credits).

@@ -1,0 +1,96 @@
+---
+title: normalize
+description: Left-align indels, split multi-allelic sites, and validate REF alleles against a reference FASTA.
+---
+
+Left-align indels, split multi-allelic sites into biallelic records, and optionally
+validate REF alleles against a reference FASTA.
+
+## Synopsis
+
+```bash
+vcfkit normalize [OPTIONS] --reference <FASTA> [INPUT]
+```
+
+Input defaults to stdin if not provided. Output defaults to stdout.
+
+## Options
+
+| Flag | Description |
+|------|-------------|
+| `-f, --reference <FASTA>` | Reference genome FASTA (required) |
+| `-o, --output <FILE>` | Output file (default: stdout) |
+| `--no-split` | Keep multi-allelic sites (don't split) |
+| `--no-left-align` | Skip left-alignment of indels |
+| `--check-ref <MODE>` | How to handle REF mismatches: `ignore` / `warn` (default) / `error` |
+| `--fast` | Enable fast path for biallelic SNPs/MNPs (~4× faster) |
+| `-q, --quiet` | Suppress progress bar and stats |
+
+## Examples
+
+```bash
+# Standard: left-align + split multi-allelic
+vcfkit normalize -f hg38.fa input.vcf > normalized.vcf
+
+# Keep multi-allelic sites (normalize in place, don't split)
+vcfkit normalize -f hg38.fa --no-split input.vcf > normalized.vcf
+
+# Fast path (biallelic SNPs/MNPs only — indels use standard path)
+vcfkit normalize --fast -f hg38.fa input.vcf > normalized.vcf
+
+# Error on REF mismatch (strict mode)
+vcfkit normalize -f hg38.fa --check-ref error input.vcf > normalized.vcf
+
+# From stdin, to file
+bcftools view input.bcf | vcfkit normalize -f hg38.fa -o normalized.vcf
+```
+
+## How it works
+
+### Left-alignment
+
+Implements the [Tan et al. 2015](https://doi.org/10.1093/bioinformatics/btv112) algorithm:
+repeatedly shift the variant left while the last base of REF equals the last base of
+ALT and the previous reference base equals the first base of REF/ALT.
+
+### Multi-allelic splitting
+
+When a record has multiple ALT alleles (e.g., `REF=A ALT=T,C`), each ALT is written as
+a separate biallelic record. INFO fields with `Number=A` (one value per ALT allele) are
+sliced. `Number=R` fields (one value per allele, including REF) are also re-sliced.
+`Number=1` and `Number=.` fields are copied verbatim.
+
+### The `--fast` flag
+
+The fast path reads raw VCF lines. For biallelic SNPs and MNPs — the majority of records
+in 1000 Genomes-style VCFs — it writes them as raw bytes without full noodles
+serialization. On SNP-heavy VCFs, this is ~4× faster than the standard path.
+
+Multi-allelic records and indels (when `--left-align` is on) fall back to the full
+noodles pipeline. The flag is opt-in because it changes the code path — use the
+differential tests to verify behavior on your data.
+
+## bcftools equivalence
+
+| vcfkit command | bcftools equivalent |
+|----------------|---------------------|
+| `normalize -f ref.fa` | `bcftools norm -f ref.fa -m-any -c w` |
+| `normalize -f ref.fa --no-split` | `bcftools norm -f ref.fa -c w` |
+
+## Known differences from bcftools
+
+Multi-allelic indels are currently **passed through unchanged** rather than
+left-aligned. Biallelic left-alignment is fully implemented; joint multi-allelic
+left-alignment requires the full Tan 2015 multi-ALT extension (planned v0.2).
+
+See [Known differences](/vcfkit/known-differences) for details.
+
+## REF validation
+
+By default (`--check-ref warn`), vcfkit emits a warning to stderr for each record
+where the first base of REF doesn't match the reference FASTA at that position. Only
+the first base is checked — consistent with bcftools behavior.
+
+- `warn` — log the mismatch, continue (default)
+- `error` — abort on first mismatch
+- `ignore` — skip all REF checking (fastest; useful when you trust your VCF)

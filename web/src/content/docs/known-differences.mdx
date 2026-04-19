@@ -1,0 +1,77 @@
+---
+title: Known differences from bcftools
+description: Documented behavioral differences between vcfkit and bcftools.
+---
+
+This page tracks intentional behavioral differences between vcfkit and bcftools.
+Each entry notes the version where the limitation was introduced, a concrete example,
+and the planned fix.
+
+If you observe behavior that's not documented here, please
+[file an issue](https://github.com/robertlangdonn/vcfkit/issues).
+
+---
+
+## 1. Multi-allelic indel left-alignment (v0.1.x — fix planned in v0.2)
+
+### Behavior
+
+`vcfkit normalize` passes multi-allelic indel records through **unchanged** when
+`--no-split` is used. It does **not** attempt to left-align multi-allelic indels.
+
+`bcftools norm` (without `-m`) will left-align multi-allelic indels jointly — applying
+the Tan 2015 algorithm treating all ALTs as a group, choosing the leftmost position where
+all alleles remain valid.
+
+### Example
+
+Reference around position 16404838 (chr22, hg19) is a poly-A run:
+
+```
+...GGGAAAAAAAAAAAAAAAA...
+         ^16404838
+```
+
+Input VCF (shifted right by 2, not yet fully left-aligned):
+
+```
+22  16404840  .  AA  AAA,A  100  PASS  DP=100
+```
+
+**bcftools norm output** — shifts the record left by 2:
+
+```
+22  16404838  .  GA  GAA,G  100  PASS  DP=100
+```
+
+**vcfkit normalize --no-split output** — record passes through unchanged:
+
+```
+22  16404840  .  AA  AAA,A  100  PASS  DP=100
+```
+
+The 1000 Genomes chr22 data contains this exact record at position 16404838
+(`GA → GAA,G`), which is already fully left-aligned. The divergence only manifests
+when the input record is not yet at the leftmost valid position.
+
+### Root cause
+
+The biallelic Tan 2015 implementation in vcfkit-core operates on a single (REF, ALT)
+pair. Applying it to only the first ALT of a multi-allelic record silently drops the
+remaining ALTs — a data-corrupting bug fixed in v0.1.4 by skipping left-alignment for
+multi-allelic records entirely.
+
+Proper joint multi-allelic left-alignment requires selecting a single anchor position
+where all ALT alleles can be simultaneously represented.
+
+### Planned fix
+
+v0.2 will implement joint Tan 2015 left-alignment across all ALTs.
+
+---
+
+## 2. No other known differences
+
+The differential tests in `tests/normalize_test.rs` compare vcfkit output against
+bcftools on the synthetic corpus and all pass. The real-world test against 1000 Genomes
+chr22 sites passes after accounting for the multi-allelic indel difference above.

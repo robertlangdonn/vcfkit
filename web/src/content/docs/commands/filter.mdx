@@ -1,0 +1,116 @@
+---
+title: filter
+description: Keep variants matching an expression. 4× faster than bcftools view on SNP-heavy VCFs.
+---
+
+Keep variants matching an expression. The fast path reads raw VCF lines and only parses
+the fields referenced by the expression — matching records are written as raw bytes
+without re-serialization.
+
+## Synopsis
+
+```bash
+vcfkit filter [OPTIONS] --expression <EXPR> [INPUT]
+```
+
+## Options
+
+| Flag | Description |
+|------|-------------|
+| `-e, --expression <EXPR>` | Filter expression (required) |
+| `-o, --output <FILE>` | Output file (default: stdout) |
+| `-v, --invert` | Invert: keep records that do NOT match |
+| `-q, --quiet` | Suppress progress bar and stats |
+
+## Examples
+
+```bash
+# Rare variants
+vcfkit filter -e "INFO/AF < 0.01" input.vcf
+
+# High quality PASS variants
+vcfkit filter -e "QUAL > 30 && FILTER == 'PASS'" input.vcf
+
+# Substring match (contains)
+vcfkit filter -e "INFO/CSQ ~ 'missense'" input.vcf
+
+# Non-PASS variants (inverted filter)
+vcfkit filter -e "FILTER == 'PASS'" --invert input.vcf
+
+# Chromosome + position range
+vcfkit filter -e "CHROM == 'chr17' && POS >= 43044295 && POS <= 43125483" input.vcf
+
+# Compound expression
+vcfkit filter -e "INFO/AF < 0.05 && QUAL >= 50 && FILTER == 'PASS'" input.vcf > output.vcf
+
+# From stdin
+bcftools view input.bcf | vcfkit filter -e "INFO/DP > 10"
+```
+
+## Expression language
+
+### Fields
+
+| Field | Type | Notes |
+|-------|------|-------|
+| `INFO/<key>` | Per-header type | e.g., `INFO/AF`, `INFO/DP`, `INFO/CSQ` |
+| `FORMAT/<key>` | Per-header type | First sample only |
+| `CHROM` | String | e.g., `'chr1'` |
+| `POS` | Integer | 1-based |
+| `QUAL` | Float | Missing (`.`) evaluates to false |
+| `FILTER` | String | e.g., `'PASS'` |
+
+### Operators
+
+| Operator | Meaning |
+|----------|---------|
+| `<`, `<=`, `>`, `>=`, `==`, `!=` | Comparison |
+| `&&`, `\|\|`, `!` | Logical |
+| `~` | Substring match (contains) |
+| `!~` | Substring non-match |
+
+### Literals
+
+```
+42          # integer
+3.14        # float
+'chr1'      # string (single quotes)
+```
+
+### Type coercion
+
+Fields declared as `Type=Float` in the VCF header are parsed as `f64` for numeric
+comparisons. `Type=Integer` as `i64`. `Type=String` (including `FILTER`) as string.
+A missing value (`.`) evaluates to false in all comparisons.
+
+### Multi-allelic INFO fields
+
+INFO fields with `Number=A` (one value per ALT allele) use **any-element semantics**:
+`INFO/AF < 0.01` matches if *any* ALT allele has AF < 0.01.
+
+```
+INFO/AF=0.05,0.003  →  INFO/AF < 0.01 matches (0.003 < 0.01)
+INFO/AF=0.05,0.12   →  INFO/AF < 0.01 does not match
+```
+
+## bcftools equivalence
+
+```bash
+# vcfkit
+vcfkit filter -e "INFO/AF < 0.01 && FILTER == 'PASS'" input.vcf
+
+# bcftools
+bcftools view -i 'INFO/AF < 0.01 && FILTER == "PASS"' input.vcf
+```
+
+The expression syntax is similar. Key differences: vcfkit uses single quotes for
+string literals; bcftools uses double quotes.
+
+## Performance
+
+On 1000 Genomes chr22 (1.1M records): **422ms** vs bcftools 1,695ms (**4.0×** faster).
+
+The fast path reads raw lines. For each line, it only parses the INFO fields referenced
+in the expression — skipping all other fields. Matching records are written as raw bytes.
+Non-matching records are discarded. The VCF header is parsed once with noodles to get
+INFO type metadata.

@@ -1,0 +1,71 @@
+---
+title: Credits
+description: Acknowledgments and attributions for vcfkit.
+---
+
+vcfkit exists because of decades of work by others.
+
+## htslib and bcftools
+
+[htslib](https://github.com/samtools/htslib) and
+[bcftools](https://github.com/samtools/bcftools) are the reference implementations for
+VCF/BCF processing. Created and maintained by the Wellcome Sanger Institute; primary
+authorship by Heng Li (original author), Petr Danecek (bcftools lead), and hundreds of
+contributors over 15+ years.
+
+vcfkit's normalization behavior was developed by reading bcftools source. Differential
+tests validate against bcftools output — if vcfkit and bcftools diverge, vcfkit is wrong
+by default.
+
+License: MIT/BSD
+
+## noodles
+
+[noodles](https://github.com/zaeleus/noodles) by Michael Macias — the pure-Rust VCF,
+BCF, FASTA, and chain file I/O primitives that vcfkit builds on. Without noodles this
+project would not exist in its current form.
+
+License: MIT
+
+## Tan, Abecasis, Kang 2015
+
+[Tan, Abecasis, Kang 2015](https://doi.org/10.1093/bioinformatics/btv112) — "Unified
+representation of genetic variants," *Bioinformatics* 31(13):2202–2204. The
+normalization algorithm implemented in `vcfkit normalize`.
+
+## UCSC Genome Browser
+
+[UCSC Genome Browser](https://genome.ucsc.edu/) — chain files and reference FASTAs
+used by `vcfkit liftover`.
+
+## 1000 Genomes Project
+
+The 1000 Genomes Project phase 3 chr22 dataset is used for differential testing and
+benchmarking. Data available at the
+[EBI FTP](https://ftp.1000genomes.ebi.ac.uk/vol1/ftp/release/20130502/).
+
+## AI assistance
+
+Portions of this codebase were written with assistance from
+[Claude](https://anthropic.com/claude) (Anthropic). The AI generated code; a human
+verified correctness, reviewed diffs, and owns the result.
+
+Specifically: Claude wrote the majority of the Rust implementation under direction,
+including the normalize algorithm, the filter expression parser, and the WASM wrappers.
+Every non-trivial change was validated by differential tests against bcftools or by
+explicit reasoning about correctness. All algorithm implementations (Tan 2015
+left-alignment, multi-allelic splitting, chain file parsing) were derived from reading
+bcftools source and the referenced papers — not from AI hallucination.
+
+AI assistance is disclosed here because transparency about how code was produced is
+the right thing to do, especially for tooling used in research.
+
+## vcfkit's own contribution
+
+- Modern CLI UX (error messages with what/where/how-to-fix, progress bars)
+- Single-binary distribution via cargo install or pre-built release
+- Fast paths via raw-line parsing (~4× faster than bcftools on SNP-heavy VCFs)
+- Browser-native WASM port (your VCF stays in your tab)
+- Natural-language filter queries (Phase 3, not yet shipped)
+
+vcfkit does not replace bcftools. It is a fast companion for three operations.
