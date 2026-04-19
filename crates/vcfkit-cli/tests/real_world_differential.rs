@@ -129,13 +129,12 @@ fn normalize_left_align_matches_bcftools() {
         data.chr22_vcf.to_str().unwrap(),
     ]);
 
-    // bcftools norm: left-align only, keep multi-allelics, warn mode
+    // bcftools norm: left-align only, no split/merge (-m +any merges co-located
+    // records which is a different operation than vcfkit --no-split).
     let bcftools_out = run_bcftools(&[
         "norm",
         "-f",
         data.hg19_chr22_fa.to_str().unwrap(),
-        "-m",
-        "+any",
         "-c",
         "w",
         data.chr22_vcf.to_str().unwrap(),
@@ -180,8 +179,6 @@ fn normalize_fast_matches_bcftools() {
         "norm",
         "-f",
         data.hg19_chr22_fa.to_str().unwrap(),
-        "-m",
-        "+any",
         "-c",
         "w",
         data.chr22_vcf.to_str().unwrap(),

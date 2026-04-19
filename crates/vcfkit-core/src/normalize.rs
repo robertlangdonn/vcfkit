@@ -506,8 +506,18 @@ fn left_align_record(record: &mut RecordBuf, fasta: &mut Reference) -> Result<bo
         Some(p) => p.get(),
         None => return Ok(false),
     };
+    let alts_ref = record.alternate_bases().as_ref();
+
+    // Multi-allelic indels require joint alignment across all ALTs — skip for now.
+    // Applying the biallelic algorithm to only the first ALT corrupts the record
+    // (the other ALTs are dropped). bcftools norm without -m also passes multi-allelic
+    // indels through unchanged.
+    if alts_ref.len() > 1 {
+        return Ok(false);
+    }
+
     let mut r: Vec<u8> = record.reference_bases().as_bytes().to_vec();
-    let mut a: Vec<u8> = match record.alternate_bases().as_ref().first() {
+    let mut a: Vec<u8> = match alts_ref.first() {
         Some(alt) => alt.as_bytes().to_vec(),
         None => return Ok(false),
     };

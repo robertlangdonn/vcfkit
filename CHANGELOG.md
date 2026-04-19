@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.1.4] — 2026-04-19
+
+### Fixed
+
+- **normalize: multi-allelic indel corruption** — `left_align_record` was applying the biallelic left-alignment algorithm using only the first ALT allele, then overwriting all ALTs with that single result. For a record like `GA → GAA,G`, vcfkit was producing `G → GA` (losing the deletion allele entirely). Fix: skip left-alignment for multi-allelic records; bcftools norm without `-m` also passes these through unchanged. Found and confirmed by the real-world differential test harness against 1000 Genomes chr22 (875 affected records out of 1.1M).
+
+### Changed
+
+- Differential test harness: corrected bcftools norm command from `-m +any` (merge) to no `-m` flag (left-align only, matching vcfkit `--no-split` semantics). The `+any` flag was merging co-located records into multi-allelics, making the comparison apples-to-oranges.
+
 ## [0.1.3] — 2026-04-19
 
 ### Added
