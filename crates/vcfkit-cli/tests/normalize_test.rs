@@ -1015,8 +1015,14 @@ fn fast_path_snps_match_noodles_path() {
     // Basic SNP corpus: all records are biallelic SNPs. The fast path should
     // produce byte-identical output to the noodles path.
     let input = read_corpus("basic.vcf");
-    let opts_slow = NormalizeOptions { fast: false, ..default_opts() };
-    let opts_fast = NormalizeOptions { fast: true, ..default_opts() };
+    let opts_slow = NormalizeOptions {
+        fast: false,
+        ..default_opts()
+    };
+    let opts_fast = NormalizeOptions {
+        fast: true,
+        ..default_opts()
+    };
     let (slow, stats_slow) = run_normalize(&input, opts_slow);
     let (fast, stats_fast) = run_normalize(&input, opts_fast);
     assert_vcf_eq(&slow, &fast);

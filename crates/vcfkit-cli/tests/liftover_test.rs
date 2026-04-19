@@ -807,7 +807,10 @@ fn allow_contig_mismatch_suppresses_error_and_rejects_all() {
         &chain_path,
         &src_fa,
         Some(&tgt_fa),
-        LiftoverOptions { allow_contig_mismatch: true, ..LiftoverOptions::default() },
+        LiftoverOptions {
+            allow_contig_mismatch: true,
+            ..LiftoverOptions::default()
+        },
     )
     .expect("should succeed with allow_contig_mismatch=true");
 

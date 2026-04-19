@@ -144,9 +144,25 @@ where
     let mut stats = NormalizeStats::default();
 
     if options.fast {
-        normalize_fast(vcf_reader, writer, header, fasta.as_mut(), &options, &mut stats, &mut on_record)?;
+        normalize_fast(
+            vcf_reader,
+            writer,
+            header,
+            fasta.as_mut(),
+            &options,
+            &mut stats,
+            &mut on_record,
+        )?;
     } else {
-        normalize_noodles(vcf_reader, writer, header, fasta.as_mut(), &options, &mut stats, &mut on_record)?;
+        normalize_noodles(
+            vcf_reader,
+            writer,
+            header,
+            fasta.as_mut(),
+            &options,
+            &mut stats,
+            &mut on_record,
+        )?;
     }
 
     Ok(stats)
@@ -192,7 +208,9 @@ where
                     if pos > contig_length {
                         tracing::warn!(
                             "position {} out of bounds for contig {} (length {}); skipping",
-                            pos, chrom, contig_length
+                            pos,
+                            chrom,
+                            contig_length
                         );
                         stats.out_of_bounds += 1;
                         continue;
@@ -262,16 +280,33 @@ where
 
         // Split into first 5 mandatory columns (zero-alloc).
         let mut cols = line.splitn(6, '\t');
-        let chrom = match cols.next() { Some(s) => s, None => continue };
-        let pos_str = match cols.next() { Some(s) => s, None => continue };
-        let _id = match cols.next() { Some(s) => s, None => continue };
-        let ref_bases = match cols.next() { Some(s) => s, None => continue };
-        let alt_bases = match cols.next() { Some(s) => s, None => continue }
-            .split('\t').next().unwrap_or("").trim_end_matches(&['\n', '\r'][..]);
+        let chrom = match cols.next() {
+            Some(s) => s,
+            None => continue,
+        };
+        let pos_str = match cols.next() {
+            Some(s) => s,
+            None => continue,
+        };
+        let _id = match cols.next() {
+            Some(s) => s,
+            None => continue,
+        };
+        let ref_bases = match cols.next() {
+            Some(s) => s,
+            None => continue,
+        };
+        let alt_bases = match cols.next() {
+            Some(s) => s,
+            None => continue,
+        }
+        .split('\t')
+        .next()
+        .unwrap_or("")
+        .trim_end_matches(&['\n', '\r'][..]);
 
-        let is_symbolic = alt_bases.starts_with('<')
-            || alt_bases.contains('[')
-            || alt_bases.contains(']');
+        let is_symbolic =
+            alt_bases.starts_with('<') || alt_bases.contains('[') || alt_bases.contains(']');
 
         // Symbolic alts: pass through unchanged (same as full path).
         if is_symbolic {
@@ -302,7 +337,9 @@ where
                         if pos > contig_length {
                             tracing::warn!(
                                 "position {} out of bounds for contig {} (length {}); skipping",
-                                pos, chrom_r, contig_length
+                                pos,
+                                chrom_r,
+                                contig_length
                             );
                             stats.out_of_bounds += 1;
                             continue;
@@ -331,7 +368,9 @@ where
                     if pos > contig_length {
                         tracing::warn!(
                             "position {} out of bounds for contig {} (length {}); skipping",
-                            pos, chrom, contig_length
+                            pos,
+                            chrom,
+                            contig_length
                         );
                         stats.out_of_bounds += 1;
                         continue;
