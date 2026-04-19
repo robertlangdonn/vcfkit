@@ -18,8 +18,9 @@ benches/e2e/report.md
 # Git worktrees
 .worktrees/
 
-# AI assistant context (not for the repo)
+# AI assistant context files (not for the repo)
 _docs/
+CLAUDE.md
 
 # Real-world reference data (downloaded on first run, not committed)
 tests/real_world/
