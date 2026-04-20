@@ -171,3 +171,59 @@ Run this filter? [Y/n/edit] e
 - All non-zero results visually correct
 
 **Decision: publish v0.3.0-alpha.2 to crates.io ✅**
+
+---
+
+## Round 3 — Calibration Analysis (v0.3.0-alpha.2 → alpha.3)
+
+### Problem identified: over-confident compromised translations
+
+Reviewing GiAB session logs, three queries received confidence ≥ 50% but produced
+expressions that were structural compromises, not genuine translations:
+
+| Query | Expression | Conf | Issue |
+|-------|-----------|------|-------|
+| "biallelic SNPs" | `FORMAT/GT == '0/1' \|\| FORMAT/GT == '1/1'` | ~55% | Matches ALL diploid genotypes, not SNPs specifically |
+| "phased variants" | `FORMAT/GT ~ '\|'` | ~60%? | Correct expression — phasing IS represented as pipe in GT |
+| "variants with exactly 20 reads supporting the alt" | `FORMAT/DP == 20` | ~60%? | Confuses total depth with alt-allele depth; needs `FORMAT/AD[1]` which the language doesn't support |
+
+The root cause: the system prompt did not define what confidence levels mean, so the
+model picked values that "felt right" rather than following a calibration rule.
+
+### Fix (v0.3.0-alpha.3)
+
+Added Rule 6 to `build_system_prompt()` in `ask.rs`:
+
+- **>= 0.8:** expression fully answers the query
+- **0.5–0.8:** expression answers with reasonable caveats (ambiguous thresholds, format assumptions)
+- **< 0.5:** expression is a compromise — proxy field, over-matches, or language limitation
+
+Added the explicit trigger: *"if you find yourself writing a caveat that says 'a more
+complete expression would be X' or 'this may match records the user did not intend,'
+confidence MUST be below 0.5."*
+
+Added a biallelic SNPs worked example demonstrating a compromised translation at
+confidence 0.30.
+
+### Rechecks (task 2 — requires ANTHROPIC_API_KEY in shell)
+
+Run after prompt update to verify calibration:
+
+```bash
+vcfkit filter --ask "biallelic SNPs" --yes giab.vcf > /tmp/recheck_q01.vcf 2>/tmp/recheck_q01.log
+vcfkit filter --ask "phased variants" --yes giab.vcf > /tmp/recheck_q09.vcf 2>/tmp/recheck_q09.log
+vcfkit filter --ask "variants with exactly 20 reads supporting the alt" --yes giab.vcf > /tmp/recheck_q14.vcf 2>/tmp/recheck_q14.log
+```
+
+Expected: Q01 and Q14 gate (confidence < 50%). Q09 may or may not gate —
+`FORMAT/GT ~ '|'` is technically correct for phased VCFs; a false-positive gate
+there is acceptable.
+
+**Note:** API key not available in build environment; rechecks are a manual step.
+
+### Array indexing limitation — issue filed
+
+The "exactly 20 alt reads" query exposes a deeper limitation: the filter expression
+language has no `FORMAT/AD[1]` syntax. Filed as GitHub issue #2 for v0.4 tracking.
+
+**Decision: publish v0.3.0-alpha.3 ✅**

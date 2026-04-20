@@ -1893,7 +1893,7 @@ checksum = "ba73ea9cf16a25df0c8caa16c51acb937d5712a8429db78a3ee29d5dcacd3a65"
 
 [[package]]
 name = "vcfkit-cli"
-version = "0.3.0-alpha.2"
+version = "0.3.0-alpha.3"
 dependencies = [
  "anyhow",
  "clap",
@@ -1914,7 +1914,7 @@ dependencies = [
 
 [[package]]
 name = "vcfkit-core"
-version = "0.3.0-alpha.2"
+version = "0.3.0-alpha.3"
 dependencies = [
  "anyhow",
  "console_error_panic_hook",

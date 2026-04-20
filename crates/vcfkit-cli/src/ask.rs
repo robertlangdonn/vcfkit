@@ -360,14 +360,27 @@ pub fn build_system_prompt(schema: &HeaderSchema) -> String {
          2. For multi-allelic INFO fields, any-element semantics apply automatically — INFO/AF < 0.01 matches if any allele has AF < 0.01.\n\
          3. For ambiguous thresholds (e.g. 'rare', 'high quality'), use standard genomic conventions and note them in caveats.\n\
          4. If the query cannot be answered with available fields, explain in caveats, set confidence below 0.5, and produce the nearest valid expression.\n\
-         5. expression must never be empty.\n\n\
+         5. expression must never be empty.\n\
+         6. Confidence calibration:\n\
+            - >= 0.8: expression fully answers the query using available fields.\n\
+            - 0.5-0.8: expression answers the query but with reasonable caveats (ambiguous thresholds, multiple valid interpretations, minor data-format assumptions).\n\
+            - < 0.5: expression is a compromise that does not fully answer the query. Use < 0.5 when:\n\
+              * You substituted a proxy field for the field the user requested.\n\
+              * Your expression matches more records than the user asked for (e.g. all diploid genotypes when asked for biallelic SNPs).\n\
+              * Your expression is a best-effort workaround that caveats describe as incomplete or potentially wrong.\n\
+              * The expression language cannot express the query and you produced a placeholder.\n\
+            If you find yourself writing a caveat such as 'a more complete expression would be X' or\n\
+            'this may match records the user did not intend,' confidence MUST be below 0.5.\n\n\
          ## Examples\n\n\
          Query: \"rare variants\"\n\
          {\"expression\": \"INFO/AF < 0.01\", \"reasoning\": \"Rare variants conventionally means allele frequency below 1%.\", \"confidence\": 0.9, \"caveats\": [\"Using AF < 0.01 as the rarity threshold; adjust as needed.\"]}\n\n\
          Query: \"high-quality PASS variants on chromosome 17\"\n\
          {\"expression\": \"QUAL > 30 && FILTER == 'PASS' && CHROM == 'chr17'\", \"reasoning\": \"QUAL > 30 is a standard quality cutoff (Phred scale). FILTER == PASS ensures all caller filters passed.\", \"confidence\": 0.95, \"caveats\": []}\n\n\
          Query: \"missense variants in BRCA1\"\n\
-         {\"expression\": \"INFO/CSQ ~ 'missense_variant' && INFO/CSQ ~ 'BRCA1'\", \"reasoning\": \"Assumes VEP CSQ annotation. Substring match finds records where annotation contains both terms.\", \"confidence\": 0.35, \"caveats\": [\"Requires VEP INFO/CSQ annotation field.\", \"Match is substring-based and may capture related terms.\"]}\n"
+         {\"expression\": \"INFO/CSQ ~ 'missense_variant' && INFO/CSQ ~ 'BRCA1'\", \"reasoning\": \"Assumes VEP CSQ annotation. Substring match finds records where annotation contains both terms.\", \"confidence\": 0.35, \"caveats\": [\"Requires VEP INFO/CSQ annotation field.\", \"Match is substring-based and may capture related terms.\"]}\n\n\
+         Example of a compromised translation (confidence must be < 0.5):\n\
+         Query: \"biallelic SNPs\"\n\
+         {\"expression\": \"FORMAT/GT == '0/1' || FORMAT/GT == '1/1'\", \"reasoning\": \"Cannot directly filter for biallelic SNPs without confirmed INFO/varType values or INFO/SVTYPE. Diploid genotypes used as a weak proxy.\", \"confidence\": 0.3, \"caveats\": [\"Expression matches all diploid genotypes, not specifically biallelic SNPs.\", \"INFO/varType == 'SNP' would strengthen this if the exact string value is confirmed.\"]}\n"
     );
 
     p

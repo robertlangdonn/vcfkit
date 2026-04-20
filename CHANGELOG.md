@@ -1,5 +1,36 @@
 # Changelog
 
+## [0.3.0-alpha.3] — 2026-04-20
+
+### Changed
+
+- **`--ask` confidence calibration** — added explicit calibration rules to the
+  system prompt so the LLM uses confidence levels consistently:
+  - ≥ 0.8: expression fully answers the query
+  - 0.5–0.8: answers with reasonable caveats
+  - < 0.5: compromised expression (proxy field, over-matches, language limitation)
+
+  Added a trigger rule: any caveat of the form "this may match records the user did
+  not intend" or "a more complete expression would be X" forces confidence below 0.5,
+  ensuring the gate fires rather than silently running a wrong answer.
+
+- Added a worked example of a compromised translation ("biallelic SNPs") to the
+  system prompt, teaching calibration by demonstration.
+
+### Fixed
+
+- Queries like "biallelic SNPs" and "variants with exactly 20 alt reads" previously
+  returned ~55–60% confidence and ran silently under `--yes`. After this fix they
+  should gate at < 50%, prompting the user to review before running.
+
+### Known limitation tracked
+
+- GitHub issue #2: `--ask` cannot express per-element array access (`FORMAT/AD[1]`,
+  `INFO/AF[0]`). Queries needing alt-allele depth require a bcftools workaround.
+  Planned for v0.4 filter expression language extension.
+
+---
+
 ## [0.3.0-alpha.2] — 2026-04-19
 
 ### Changed
