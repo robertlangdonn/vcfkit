@@ -5,6 +5,9 @@ import react from '@astrojs/react';
 export default defineConfig({
   site: 'https://vcfkit.dev',
   vite: {
+    optimizeDeps: {
+      include: ['react', 'react-dom', 'react-dom/client'],
+    },
     build: {
       // /wasm/vcfkit_core.js is served as a static public asset; don't try to bundle it.
       rollupOptions: {
