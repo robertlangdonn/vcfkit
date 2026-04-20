@@ -10,11 +10,6 @@ Not for clinical use. Research and pipeline tooling only.
 
 ## Install
 
-### Homebrew (macOS / Linux)
-```
-brew install vcfkit
-```
-
 ### Pre-built binaries
 
 macOS Apple Silicon:

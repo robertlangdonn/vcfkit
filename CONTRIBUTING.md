@@ -16,6 +16,12 @@ For differential tests against bcftools (optional):
 ```bash
 # Install bcftools, then:
 cargo test --workspace -- --ignored --include-ignored
+
+# Real-world differential on 1000 Genomes chr22 (downloads ~50MB on first run):
+VCFKIT_REAL_TESTS=1 cargo test --release --test real_world_differential
+
+# --ask integration tests (no API key needed — uses mock):
+cargo test -p vcfkit-cli --test ask_gate
 ```
 
 ## Before submitting a PR

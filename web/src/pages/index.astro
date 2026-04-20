@@ -70,7 +70,7 @@ import '../styles/custom.css';
         Three operations every VCF pipeline needs — normalize, liftover, filter — measurably faster than bcftools, in one binary with no htslib.
       </p>
       <div class="g-install">
-        <code class="g-install-cmd" id="install-cmd">brew install vcfkit</code>
+        <code class="g-install-cmd" id="install-cmd">cargo install vcfkit-cli</code>
         <button class="g-copy-btn" id="copy-btn" aria-label="Copy install command">
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
         </button>
@@ -236,10 +236,7 @@ import '../styles/custom.css';
     <div class="g-inner">
       <h2 class="g-section-h">Install</h2>
       <div class="g-prose">
-        <pre class="g-pre"><code><span class="p-dim"># Homebrew</span>
-brew install vcfkit
-
-<span class="p-dim"># Cargo</span>
+        <pre class="g-pre"><code><span class="p-dim"># Cargo</span>
 cargo install vcfkit-cli
 
 <span class="p-dim"># Prebuilt binary (macOS, Linux, Windows)</span>
@@ -308,7 +305,7 @@ curl -fsSL https://vcfkit.dev/install.sh | sh</code></pre>
   var heroBtn = document.getElementById('copy-btn');
   if (heroBtn) {
     heroBtn.addEventListener('click', function() {
-      navigator.clipboard.writeText('brew install vcfkit').then(function() {
+      navigator.clipboard.writeText('cargo install vcfkit-cli').then(function() {
         heroBtn.innerHTML = CHECK_ICON;
         heroBtn.classList.add('g-copy-btn--done');
         setTimeout(function() {

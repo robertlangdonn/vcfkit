@@ -42,15 +42,14 @@ The fast path applies to biallelic SNPs/MNPs (~80% of typical VCFs). Standard no
 ## Install
 
 ```bash
-# Homebrew (macOS / Linux)
-brew install vcfkit
-
 # Cargo
 cargo install vcfkit-cli
 
 # Pre-built binaries (macOS, Linux, Windows) — no Rust required
 # See https://vcfkit.dev/install or GitHub Releases
 ```
+
+Homebrew tap is planned. Follow the repo or watch [Releases](https://github.com/robertlangdonn/vcfkit/releases) for when it lands.
 
 Full install instructions (including Windows, ARM, shell completions): **[vcfkit.dev/install](https://vcfkit.dev/install)**
 

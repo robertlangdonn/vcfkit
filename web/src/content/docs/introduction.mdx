@@ -32,8 +32,9 @@ No htslib. No Python. No C dependencies. One static binary that works on macOS, 
 ## Quick start
 
 ```bash
-# Install
-brew install vcfkit
+# Install (pre-built binary or Cargo)
+# See https://vcfkit.dev/install
+cargo install vcfkit-cli
 
 # Filter: keep rare variants
 vcfkit filter -e "INFO/AF < 0.01" input.vcf
