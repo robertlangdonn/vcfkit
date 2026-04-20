@@ -22,7 +22,7 @@ import '../styles/custom.css';
 <script is:inline>
   (function () {
     var s = localStorage.getItem('starlight-theme');
-    var t = s || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+    var t = s || 'light';
     document.documentElement.dataset.theme = t;
   })();
 </script>
@@ -51,6 +51,7 @@ import '../styles/custom.css';
         crates.io
       </a>
       <a href="#contact" class="g-nav-link g-nav-contact">Contact</a>
+      <button id="theme-toggle" class="g-nav-link g-theme-toggle" aria-label="Switch to dark mode"></button>
     </nav>
   </div>
 </header>
@@ -270,7 +271,7 @@ curl -fsSL https://vcfkit.dev/install.sh | sh</code></pre>
       Built by <a href="https://prasadkhake.com" target="_blank" rel="noopener noreferrer">Prasad Khake</a>
     </span>
     <span class="g-footer-sep">·</span>
-    <span><a href="https://x.com/sleepybroke" target="_blank" rel="noopener noreferrer">@sleepybroke</a></span>
+    <span><a href="https://x.com/sleepybroke" target="_blank" rel="noopener noreferrer" aria-label="X (sleepybroke)" class="g-footer-x"><svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-4.714-6.231-5.401 6.231H2.746l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>X</a></span>
     <span class="g-footer-sep">·</span>
     <span><a href="https://github.com/robertlangdonn/vcfkit" target="_blank" rel="noopener noreferrer">GitHub</a></span>
     <span class="g-footer-sep">·</span>
@@ -313,6 +314,23 @@ curl -fsSL https://vcfkit.dev/install.sh | sh</code></pre>
       });
     });
   }
+
+  var SUN_ICON = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>';
+  var MOON_ICON = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>';
+
+  var themeBtn = document.getElementById('theme-toggle');
+  function setThemeIcon(theme) {
+    themeBtn.innerHTML = theme === 'dark' ? SUN_ICON : MOON_ICON;
+    themeBtn.setAttribute('aria-label', theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode');
+  }
+  setThemeIcon(document.documentElement.dataset.theme || 'light');
+  themeBtn.addEventListener('click', function() {
+    var current = document.documentElement.dataset.theme || 'light';
+    var next = current === 'dark' ? 'light' : 'dark';
+    document.documentElement.dataset.theme = next;
+    localStorage.setItem('starlight-theme', next);
+    setThemeIcon(next);
+  });
 </script>
 
 </body>
@@ -780,6 +798,22 @@ code {
 .g-footer a:hover { color: var(--g-text); }
 .g-footer-sep { color: var(--g-text-mute); }
 .g-footer-copy { color: var(--g-text-mute); }
+.g-footer-x { display: inline-flex; align-items: center; gap: 4px; }
+
+.g-theme-toggle {
+  background: none;
+  border: none;
+  cursor: pointer;
+  line-height: 1;
+  color: var(--g-text-dim);
+  padding: 5px 8px;
+  border-radius: 5px;
+  transition: color 0.15s, background 0.12s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.g-theme-toggle:hover { color: var(--g-text); background: var(--g-border); }
 
 /* ── Disclaimer ──────────────────────────────────────────────────────── */
 .g-disclaimer {
