@@ -21,6 +21,7 @@ benches/e2e/report.md
 # AI assistant context files (not for the repo)
 _docs/
 CLAUDE.md
+drafts/
 
 # Real-world reference data (downloaded on first run, not committed)
 tests/real_world/
