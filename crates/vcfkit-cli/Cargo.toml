@@ -21,7 +21,7 @@ name = "ask_eval"
 path = "src/bin/ask_eval.rs"
 
 [dependencies]
-vcfkit-core = { version = "0.3.0-alpha.3", path = "../vcfkit-core" }
+vcfkit-core = { version = "0.3.0-alpha.4", path = "../vcfkit-core" }
 clap = { workspace = true }
 clap_complete = { workspace = true }
 anyhow = { workspace = true }

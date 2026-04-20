@@ -107,6 +107,29 @@ fn ask_yes_accept_low_confidence_runs() {
     assert!(stdout.contains("#CHROM"), "expected VCF header in output");
 }
 
+/// --ask --yes at exactly 50% confidence should be blocked (boundary case).
+/// Previously slipped through because the gate used strict < 0.5.
+#[test]
+fn ask_yes_exactly_50_percent_is_blocked() {
+    let vcf = write_temp_vcf(MINIMAL_VCF);
+    let boundary_mock = r#"{"expression":"FORMAT/AD > 19","reasoning":"Workaround.","confidence":0.5,"caveats":["Matches wrong records"]}"#;
+    let out = Command::new(BIN)
+        .env("VCFKIT_MOCK_TRANSLATION", boundary_mock)
+        .args([
+            "filter",
+            "--ask",
+            "variants with exactly 20 alt reads",
+            "--yes",
+            vcf.path().to_str().unwrap(),
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        !out.status.success(),
+        "exactly 50% confidence should be blocked, not allowed through"
+    );
+}
+
 /// -e and --ask are mutually exclusive.
 #[test]
 fn expression_and_ask_are_mutually_exclusive() {

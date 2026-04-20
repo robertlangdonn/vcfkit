@@ -22,7 +22,9 @@ use crate::ask::{self, HeaderSchema};
 use crate::output::ProgressReporter;
 use crate::FilterArgs;
 
-const LOW_CONFIDENCE_THRESHOLD: f64 = 0.5;
+// Gate at < 0.51 so that exactly 50% is caught. Users see "below 50%" in the
+// error message; the 0.51 is an implementation detail.
+const LOW_CONFIDENCE_THRESHOLD: f64 = 0.51;
 
 /// Run the filter subcommand.
 pub fn run(args: &FilterArgs, quiet: bool) -> anyhow::Result<()> {
@@ -164,10 +166,9 @@ fn resolve_ask(query: &str, args: &FilterArgs, quiet: bool) -> anyhow::Result<St
     if translation.confidence < LOW_CONFIDENCE_THRESHOLD && args.yes && !args.accept_low_confidence
     {
         return Err(anyhow!(
-            "translation confidence is {:.0}% (below {}% threshold).\n\
+            "translation confidence is {:.0}% (below 50% threshold).\n\
              Review the expression above, then re-run with --accept-low-confidence to proceed.",
             translation.confidence * 100.0,
-            (LOW_CONFIDENCE_THRESHOLD * 100.0) as u32,
         ));
     }
 

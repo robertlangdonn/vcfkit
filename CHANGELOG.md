@@ -1,5 +1,26 @@
 # Changelog
 
+## [0.3.0-alpha.4] — 2026-04-20
+
+### Fixed
+
+- **Confidence gate boundary**: gate now fires at confidence ≤ 50%, not strictly
+  < 50%. Previously the LLM could return exactly 50% for a known-compromised
+  expression (e.g. the FORMAT/AD any-element trap) and pass `--yes` silently.
+  `LOW_CONFIDENCE_THRESHOLD` is now 0.51; the user-facing error message still
+  reads "below 50% threshold". Regression test added (`ask_yes_exactly_50_percent_is_blocked`).
+
+- **Prompt: array-indexing workaround example**: added a second compromised-translation
+  worked example to the system prompt showing the FORMAT/AD any-element case at
+  confidence 0.25. Includes the explicit rule: "setting confidence to exactly 0.5
+  is not a safe compromise — any expression that the caveats describe as 'matches
+  records the user did not intend' must be explicitly below the gate."
+
+  Found during v0.3.0-alpha.3 dogfood on GiAB HG001: "variants with exactly 20 alt
+  reads" returned confidence 50% and matched 421,921 records instead of ~thousands.
+
+---
+
 ## [0.3.0-alpha.3] — 2026-04-20
 
 ### Changed

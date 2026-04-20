@@ -380,7 +380,11 @@ pub fn build_system_prompt(schema: &HeaderSchema) -> String {
          {\"expression\": \"INFO/CSQ ~ 'missense_variant' && INFO/CSQ ~ 'BRCA1'\", \"reasoning\": \"Assumes VEP CSQ annotation. Substring match finds records where annotation contains both terms.\", \"confidence\": 0.35, \"caveats\": [\"Requires VEP INFO/CSQ annotation field.\", \"Match is substring-based and may capture related terms.\"]}\n\n\
          Example of a compromised translation (confidence must be < 0.5):\n\
          Query: \"biallelic SNPs\"\n\
-         {\"expression\": \"FORMAT/GT == '0/1' || FORMAT/GT == '1/1'\", \"reasoning\": \"Cannot directly filter for biallelic SNPs without confirmed INFO/varType values or INFO/SVTYPE. Diploid genotypes used as a weak proxy.\", \"confidence\": 0.3, \"caveats\": [\"Expression matches all diploid genotypes, not specifically biallelic SNPs.\", \"INFO/varType == 'SNP' would strengthen this if the exact string value is confirmed.\"]}\n"
+         {\"expression\": \"FORMAT/GT == '0/1' || FORMAT/GT == '1/1'\", \"reasoning\": \"Cannot directly filter for biallelic SNPs without confirmed INFO/varType values or INFO/SVTYPE. Diploid genotypes used as a weak proxy.\", \"confidence\": 0.3, \"caveats\": [\"Expression matches all diploid genotypes, not specifically biallelic SNPs.\", \"INFO/varType == 'SNP' would strengthen this if the exact string value is confirmed.\"]}\n\n\
+         Example of an array-indexing workaround (confidence must be 0.2-0.4, NOT at the boundary):\n\
+         Query: \"variants with exactly 20 reads supporting the alt\"\n\
+         {\"expression\": \"FORMAT/AD > 19 && FORMAT/AD < 21\", \"reasoning\": \"FORMAT/AD holds per-allele depths. The filter language cannot index AD[1] for the first alt. Any-element semantics mean this matches records where ANY allele depth (including the reference) is near 20.\", \"confidence\": 0.25, \"caveats\": [\"Expression matches records where any allele depth is near 20, including the reference allele depth.\", \"Filter language does not support array indexing (e.g., AD[1]).\", \"Use bcftools with indexing syntax or a post-filter script if you need exact alt-read counts.\"]}\n\n\
+         IMPORTANT: A translation that knowingly matches the wrong set of records must have confidence BELOW 0.5, not AT 0.5. Setting confidence to exactly 0.5 is not a safe compromise — any expression that the caveats describe as 'matches records the user did not intend' must be explicitly below the gate.\n"
     );
 
     p
