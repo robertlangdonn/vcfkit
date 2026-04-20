@@ -1,134 +1,104 @@
 # vcfkit
 
-Fast VCF toolkit for bioinformaticians. Three operations every pipeline needs — normalize, liftover, filter — as a single static binary with zero dependencies.
+Fast VCF toolkit for bioinformaticians — normalize, liftover, filter — as a single static binary with zero dependencies.
 
-> **Status:** v0.3.0-alpha.2 — early preview. Suitable for research pipelines and evaluation. Not validated for production clinical use. Known behavioral differences from bcftools are documented in [docs/known_differences.md](docs/known_differences.md).
+**[vcfkit.dev](https://vcfkit.dev)** · [Docs](https://vcfkit.dev/introduction) · [Install](https://vcfkit.dev/install) · [Changelog](CHANGELOG.md)
 
-On 1000 Genomes chr22 (1.1M variants), vcfkit's fast paths beat bcftools by ~4×:
+> **v0.3.0-alpha.4** — suitable for research pipelines and evaluation. Not validated for clinical use. [Known differences from bcftools →](docs/known_differences.md)
 
-| Operation | vcfkit | bcftools | speedup |
-|-----------|--------|----------|---------|
-| `filter -e 'INFO/AF < 0.01'` | **422 ms** | 1,695 ms | **4.0×** |
-| `normalize --fast --no-split` | **682 ms** | 2,820 ms | **4.1×** |
-| `normalize` (standard, with noodles) | 6,481 ms | 2,820 ms | 0.43× |
-| `liftover` | 6,713 ms | — | ~164K rec/s |
+---
 
-Standard normalize (without `--fast`) is currently **2.3× slower** than bcftools — the fast path is opt-in because it only handles biallelic SNPs/MNPs. Liftover has no bcftools equivalent on this platform (`bcftools +liftover` plugin unavailable). Measured 2026-04-19 on macOS aarch64 with bcftools 1.23.1. See [BENCHMARKS.md](BENCHMARKS.md) for full methodology.
+## What it does
 
-```
+Three operations every VCF pipeline needs, rewritten in Rust:
+
+| Command | What it does |
+|---------|-------------|
+| `normalize` | Left-align indels, split multi-allelic sites, validate against reference FASTA |
+| `liftover` | Convert between genome builds (hg19, hg38, T2T-CHM13) using UCSC chain files |
+| `filter` | Keep variants matching expressions over INFO, FORMAT, CHROM, POS, QUAL, FILTER |
+
+```bash
 vcfkit normalize -f ref.fa input.vcf > normalized.vcf
 vcfkit liftover -s hg19.fa -t hg38.fa -c hg19ToHg38.over.chain.gz input.vcf > lifted.vcf
 vcfkit filter -e "INFO/AF < 0.01 && FILTER == 'PASS'" input.vcf > rare_variants.vcf
 ```
 
-## Install
-
-```bash
-cargo install vcfkit-cli   # installs the `vcfkit` binary
-```
-
-Or download a pre-built binary from [Releases](https://github.com/robertlangdonn/vcfkit/releases).  
-No Rust required for the pre-built binary.
-
-## Credits
-
-vcfkit exists because of decades of work by others:
-
-**[htslib](https://github.com/samtools/htslib)** and **[bcftools](https://github.com/samtools/bcftools)** — the reference implementations for VCF/BCF processing. Created and maintained by the Wellcome Sanger Institute; primary authorship by Heng Li (original author), Petr Danecek (bcftools lead), and hundreds of contributors over 15+ years. vcfkit's normalization behavior was developed by reading bcftools source. Differential tests validate against bcftools output — if vcfkit and bcftools diverge, vcfkit is wrong by default.
-
-**[noodles](https://github.com/zaeleus/noodles)** by Michael Macias — the pure-Rust VCF, BCF, FASTA, and chain file I/O primitives that vcfkit builds on. Without noodles this project would not exist in its current form.
-
-**[Tan, Abecasis, Kang 2015](https://doi.org/10.1093/bioinformatics/btv112)** — "Unified representation of genetic variants," *Bioinformatics* 31(13):2202–2204. The normalization algorithm implemented in `vcfkit normalize`.
-
-**[UCSC Genome Browser](https://genome.ucsc.edu/)** — chain files and reference FASTAs used by `vcfkit liftover`.
-
-### AI assistance
-
-Portions of this codebase were written with assistance from Claude (Anthropic). The AI wrote code; a human verified correctness and owns the result. See [CREDITS.md](CREDITS.md) for full attribution details.
-
-vcfkit's contribution: a modern CLI UX, single-binary distribution, measured performance improvements on specific hot paths via raw-line parsing (the same approach htslib uses in C, applied in Rust), and — in future releases — WASM and natural-language filter queries. It does not replace bcftools. See [BENCHMARKS.md](BENCHMARKS.md) for methodology.
-
-## Usage
-
-### normalize
-
-Left-align indels and split multi-allelic sites:
-
-```bash
-vcfkit normalize -f reference.fasta input.vcf -o output.vcf
-
-# Options
--f, --reference <FASTA>     Reference genome (required)
--o, --output <FILE>         Output file (default: stdout)
-    --no-split              Keep multi-allelic sites
-    --no-left-align         Skip left-alignment
-    --check-ref <MODE>      ignore | warn | error  (default: warn)
-```
-
-With `--no-split` (multi-allelic records preserved), equivalent to `bcftools norm -f ref.fa -c w`. Without `--no-split`, equivalent to `bcftools norm -f ref.fa -m-any -c w` for biallelic records; multi-allelic indels are currently passed through without left-alignment (see [known differences](docs/known_differences.md)).
-
-### liftover
-
-Convert variants between genome builds using UCSC chain files:
-
-```bash
-vcfkit liftover \
-  -s hg19.fa -t hg38.fa \
-  -c hg19ToHg38.over.chain.gz \
-  input.vcf -o output.vcf
-
-# Known chain file URLs
-vcfkit liftover --list-chains
-```
-
-Unmapped variants are written to a reject file (`-r rejects.vcf`) instead of silently dropped.
-
-### filter
-
-Keep variants matching an expression:
-
-```bash
-vcfkit filter -e "INFO/AF < 0.01" input.vcf
-vcfkit filter -e "CHROM == 'chr17' && QUAL > 30" input.vcf
-vcfkit filter -e "INFO/CSQ ~ 'missense'" input.vcf
-vcfkit filter -e "FILTER == 'PASS'" --invert input.vcf   # keep non-PASS
-```
-
-Supported fields: `INFO/*`, `FORMAT/*`, `CHROM`, `POS`, `QUAL`, `FILTER`  
-Operators: `<` `<=` `>` `>=` `==` `!=` `&&` `||` `!` `~` `!~`
-
-Multi-allelic INFO fields (e.g. `AF=0.12,0.003`) use any-element semantics — the filter matches if any value satisfies the condition.
-
-#### Natural-language filter (`--ask`)
-
-Translate plain English to a filter expression via Anthropic's Claude API:
-
-```bash
-export ANTHROPIC_API_KEY=sk-ant-...
-
-vcfkit filter --ask "rare PASS variants" input.vcf
-vcfkit filter --ask "rare PASS variants" --yes input.vcf   # skip confirmation
-vcfkit filter -a "rare PASS variants" --yes input.vcf      # short flag
-```
-
-The LLM sees only the VCF header schema (field names, types, descriptions) and your query. Variant data never leaves your machine. The translated expression is shown for review before filtering runs, unless `--yes` is passed. When confidence is below 50%, `--yes` is blocked; add `--accept-low-confidence` to override.
-
-## Piping
-
-All three operations read from stdin and write to stdout by default:
-
-```bash
-cat input.vcf \
-  | vcfkit normalize -f ref.fa \
-  | vcfkit filter -e "QUAL > 30" \
-  > output.vcf
-```
+All three read from stdin and write to stdout by default — pipe them freely.
 
 ## Performance
 
-The filter fast path reads raw VCF lines and only parses fields the expression references — matching records are written as raw bytes without re-serialization. See [BENCHMARKS.md](BENCHMARKS.md) for full results and methodology.
+Measured on 1000 Genomes chr22 (1,103,547 variants), macOS aarch64, bcftools 1.23.1:
 
-## Building from source
+| Operation | vcfkit | bcftools | Speedup |
+|-----------|--------|----------|---------|
+| `filter -e 'INFO/AF < 0.01'` | **422 ms** | 1,695 ms | **4.0×** |
+| `normalize --fast --no-split` | **682 ms** | 2,820 ms | **4.1×** |
+| `normalize` (standard path) | 6,481 ms | 2,820 ms | 0.43× |
+| `liftover` | 6,713 ms | — | ~164K rec/s |
+
+The fast path applies to biallelic SNPs/MNPs (~80% of typical VCFs). Standard normalize uses a pure-Rust parser — correct on all inputs but slower than bcftools' C implementation. See [BENCHMARKS.md](BENCHMARKS.md) for full methodology.
+
+## Install
+
+```bash
+# Homebrew (macOS / Linux)
+brew install vcfkit
+
+# Cargo
+cargo install vcfkit-cli
+
+# Pre-built binaries (macOS, Linux, Windows) — no Rust required
+# See https://vcfkit.dev/install or GitHub Releases
+```
+
+Full install instructions (including Windows, ARM, shell completions): **[vcfkit.dev/install](https://vcfkit.dev/install)**
+
+## Usage
+
+### filter
+
+```bash
+# Expression filter
+vcfkit filter -e "INFO/AF < 0.01" input.vcf
+vcfkit filter -e "QUAL > 30 && FILTER == 'PASS'" input.vcf
+vcfkit filter -e "CHROM == 'chr17' && POS >= 43044295" input.vcf
+vcfkit filter -e "INFO/CSQ ~ 'missense'" input.vcf
+vcfkit filter -e "FILTER == 'PASS'" --invert input.vcf   # keep non-PASS
+
+# Natural-language filter via Claude (requires ANTHROPIC_API_KEY)
+vcfkit filter --ask "rare PASS variants on chromosome 17" input.vcf
+vcfkit filter --ask "rare PASS variants" --yes input.vcf   # skip confirmation
+```
+
+Fields: `INFO/*`, `FORMAT/*`, `CHROM`, `POS`, `QUAL`, `FILTER`  
+Operators: `<` `<=` `>` `>=` `==` `!=` `&&` `||` `!` `~` (contains) `!~`
+
+With `--ask`: the LLM sees only your query and the VCF header schema. Variant data never leaves your machine. The translated expression is shown for review before filtering runs.
+
+### normalize
+
+```bash
+vcfkit normalize -f hg38.fa input.vcf > normalized.vcf
+vcfkit normalize --fast -f hg38.fa input.vcf > normalized.vcf   # 4× faster for SNPs/MNPs
+vcfkit normalize -f hg38.fa --no-split input.vcf                 # keep multi-allelic
+vcfkit normalize -f hg38.fa --check-ref error input.vcf          # strict REF validation
+```
+
+### liftover
+
+```bash
+vcfkit liftover -s hg19.fa -t hg38.fa -c hg19ToHg38.over.chain.gz input.vcf
+vcfkit liftover ... -r rejects.vcf input.vcf   # keep unmapped records
+```
+
+Download chain files: `vcfkit liftover --list-chains`
+
+## Try it in the browser
+
+**[vcfkit.dev](https://vcfkit.dev)** — all three operations run in WebAssembly in your browser. Nothing uploads anywhere.
+
+## Build from source
 
 ```bash
 git clone https://github.com/robertlangdonn/vcfkit
@@ -139,10 +109,21 @@ cargo build --release
 
 Requires Rust 1.75+. No C dependencies, no htslib.
 
-## Changelog
+## Correctness
 
-See [CHANGELOG.md](CHANGELOG.md) for release history.
+Validated against bcftools in differential tests on 1000 Genomes chr22 (1.1M real variants). Tests run nightly in CI. Known divergences are documented in [docs/known_differences.md](docs/known_differences.md).
+
+## Credits
+
+vcfkit builds on the work of:
+
+- **[htslib](https://github.com/samtools/htslib) / [bcftools](https://github.com/samtools/bcftools)** — Wellcome Sanger Institute, Heng Li, Petr Danecek, and contributors. The reference implementation vcfkit validates against.
+- **[noodles](https://github.com/zaeleus/noodles)** by Michael Macias — the pure-Rust VCF/BCF/FASTA I/O library vcfkit builds on.
+- **[Tan, Abecasis, Kang 2015](https://doi.org/10.1093/bioinformatics/btv112)** — the normalization algorithm implemented in `vcfkit normalize`.
+- **[UCSC Genome Browser](https://genome.ucsc.edu/)** — chain files for liftover.
+
+Portions of this codebase were written with assistance from Claude (Anthropic). See [CREDITS.md](CREDITS.md) for full attribution.
 
 ## License
 
-MIT
+[MIT](LICENSE)
