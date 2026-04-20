@@ -18,7 +18,9 @@ export async function ensureWasm(): Promise<VcfkitWasm> {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const m: any = await dynamicImport('/wasm/vcfkit_core.js');
     // Pass explicit WASM URL so the browser knows where to fetch it.
-    await m.default('/wasm/vcfkit_core_bg.wasm');
+    // Let import.meta.url inside vcfkit_core.js resolve the .wasm sibling —
+    // avoids the deprecated single-string API and works in both dev and prod.
+    await m.default();
     mod = m as VcfkitWasm;
     return mod;
   })();
