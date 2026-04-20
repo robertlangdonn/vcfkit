@@ -50,6 +50,9 @@ import '../styles/custom.css';
       <p class="g-tagline">
         Fast VCF operations. Validated against bcftools. Single binary.
       </p>
+      <p class="g-tagline-sub">
+        Three operations every VCF pipeline needs — normalize, liftover, filter — measurably faster than bcftools, in one binary with no htslib.
+      </p>
       <div class="g-install">
         <code class="g-install-cmd" id="install-cmd">brew install vcfkit</code>
         <button class="g-copy-btn" id="copy-btn" aria-label="Copy install command" onclick="
@@ -85,7 +88,7 @@ import '../styles/custom.css';
       </p>
       <p>
         It doesn't replace bcftools. It does three operations well, with an optional natural-language
-        filter that translates plain English to a deterministic expression using Claude.
+        filter that translates plain English to a deterministic expression.
         The same core runs in your browser via WebAssembly — nothing in the demo above uploads anywhere.
       </p>
     </div>
@@ -102,7 +105,7 @@ import '../styles/custom.css';
             Left-align indels and split multi-allelic sites. Validates against a reference genome.
             A fast path handles biallelic SNPs/MNPs without full parsing (~80% of typical VCFs).
           </dd>
-          <dd class="g-op-cmd"><code>vcfkit normalize -r ref.fa input.vcf</code></dd>
+          <pre class="g-op-cmd"><code>vcfkit normalize -r ref.fa input.vcf</code></pre>
         </div>
         <div class="g-op">
           <dt><a href="/commands/liftover">liftover</a></dt>
@@ -110,7 +113,7 @@ import '../styles/custom.css';
             Convert between genome builds — hg19, hg38, T2T-CHM13 — using UCSC chain files.
             Handles strand flips and b37/UCSC contig name mismatches.
           </dd>
-          <dd class="g-op-cmd"><code>vcfkit liftover --chain hg19ToHg38.chain.gz input.vcf</code></dd>
+          <pre class="g-op-cmd"><code>vcfkit liftover --chain hg19ToHg38.chain.gz input.vcf</code></pre>
         </div>
         <div class="g-op">
           <dt><a href="/commands/filter">filter</a></dt>
@@ -118,7 +121,7 @@ import '../styles/custom.css';
             Select variants with expressions over INFO, FORMAT, CHROM, POS, QUAL, and FILTER fields.
             Or describe the filter in plain English with <code>--ask</code> and review the expression before it runs.
           </dd>
-          <dd class="g-op-cmd"><code>vcfkit filter 'INFO/AF &lt; 0.01 &amp;&amp; FILTER == "PASS"' input.vcf</code></dd>
+          <pre class="g-op-cmd"><code>vcfkit filter 'INFO/AF &lt; 0.01 &amp;&amp; FILTER == "PASS"' input.vcf</code></pre>
         </div>
       </dl>
     </div>
@@ -134,8 +137,8 @@ import '../styles/custom.css';
           <span class="g-bench-label">faster than bcftools normalize<br/>(biallelic SNP/MNP fast path)</span>
         </div>
         <div class="g-bench-stat">
-          <span class="g-bench-num">1.9×</span>
-          <span class="g-bench-label">faster than bcftools filter<br/>(expression evaluation)</span>
+          <span class="g-bench-num">4×</span>
+          <span class="g-bench-label">faster than bcftools filter<br/>(INFO/AF expression on 1.1M variants)</span>
         </div>
       </div>
       <p class="g-bench-note">
@@ -189,6 +192,9 @@ import '../styles/custom.css';
         <a href="https://github.com/robertlangdonn/vcfkit/actions/workflows/nightly-real-tests.yml" target="_blank" rel="noopener noreferrer">Nightly differential tests →</a>
         &nbsp;&nbsp;
         <a href="/known-differences">Known differences →</a>
+      </p>
+      <p class="g-disclaimer">
+        Not validated for clinical use. vcfkit is research and pipeline tooling only.
       </p>
     </div>
   </section>
@@ -379,8 +385,17 @@ code {
 .g-tagline {
   font-size: clamp(1rem, 2.5vw, 1.2rem);
   color: var(--g-text-dim);
-  margin-bottom: 32px;
+  margin-bottom: 16px;
   letter-spacing: -0.01em;
+}
+
+.g-tagline-sub {
+  font-size: 0.9375rem;
+  color: var(--g-text-dim);
+  max-width: 520px;
+  margin: 0 auto 32px;
+  line-height: 1.6;
+  opacity: 0.8;
 }
 
 .g-install {
@@ -438,13 +453,24 @@ code {
 }
 
 .g-section-h {
-  font-size: 1rem;
+  font-size: 0.75rem;
   font-weight: 600;
   color: var(--g-text-dim);
+  letter-spacing: 0.1em;
   text-transform: uppercase;
-  letter-spacing: 0.08em;
-  margin-bottom: 24px;
+  margin-bottom: 28px;
   font-family: var(--font-mono);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.g-section-h::before {
+  content: '';
+  display: inline-block;
+  width: 20px;
+  height: 1px;
+  background: var(--g-accent);
+  flex-shrink: 0;
 }
 
 .g-section p {
@@ -456,27 +482,29 @@ code {
 
 /* ── Operations ──────────────────────────────────────────────────────── */
 .g-ops {
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
   gap: 0;
+  border-top: 1px solid var(--g-border);
 }
 
 .g-op {
-  display: grid;
-  grid-template-columns: 120px 1fr;
-  gap: 0 32px;
-  padding: 28px 0;
-  border-bottom: 1px solid var(--g-border);
-  align-items: start;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  padding: 28px 28px 28px 0;
+  border-right: 1px solid var(--g-border);
 }
-.g-op:first-child { border-top: 1px solid var(--g-border); }
+.g-op:last-child { border-right: none; padding-right: 0; }
+.g-op:not(:first-child) { padding-left: 28px; padding-right: 28px; }
+.g-op:last-child { padding-right: 0; }
 
 .g-op dt {
   font-family: var(--font-mono);
-  font-size: 1rem;
+  font-size: 0.9375rem;
   font-weight: 600;
   color: var(--g-text);
-  padding-top: 2px;
+  margin-bottom: 10px;
 }
 .g-op dt a { color: var(--g-text); }
 .g-op dt a:hover { color: var(--g-accent-hi); text-decoration: none; }
@@ -484,17 +512,30 @@ code {
 .g-op dd {
   color: var(--g-text-dim);
   line-height: 1.65;
-  font-size: 0.9375rem;
-  margin-bottom: 8px;
+  font-size: 0.875rem;
+  margin-bottom: 12px;
+  flex: 1;
 }
+
 .g-op-cmd {
-  margin-top: 4px;
-  margin-bottom: 0 !important;
+  background: var(--g-code-bg);
+  border: 1px solid var(--g-border);
+  border-radius: 4px;
+  padding: 8px 12px;
+  overflow-x: auto;
+  white-space: nowrap;
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+  color: var(--g-text-dim);
 }
 .g-op-cmd code {
-  font-size: 0.82rem;
-  color: var(--g-text-dim);
-  background: var(--g-code-bg);
+  background: transparent;
+  border: none;
+  padding: 0;
+  font-size: inherit;
+  color: inherit;
+  white-space: nowrap;
 }
 
 /* ── Benchmarks ──────────────────────────────────────────────────────── */
@@ -604,13 +645,28 @@ code {
 .g-footer-sep { color: var(--g-text-mute); }
 .g-footer-copy { color: var(--g-text-mute); }
 
+/* ── Disclaimer ──────────────────────────────────────────────────────── */
+.g-disclaimer {
+  font-size: 0.8rem !important;
+  color: var(--g-text-dim) !important;
+  opacity: 0.7;
+  border-top: 1px solid var(--g-border);
+  padding-top: 16px;
+  margin-top: 20px !important;
+}
+
 /* ── Responsive ──────────────────────────────────────────────────────── */
-@media (max-width: 600px) {
+@media (max-width: 860px) {
+  .g-ops { grid-template-columns: 1fr; }
   .g-op {
-    grid-template-columns: 1fr;
-    gap: 8px;
+    border-right: none;
+    border-bottom: 1px solid var(--g-border);
+    padding: 24px 0 !important;
   }
-  .g-op dt { padding-top: 0; }
+  .g-op:last-child { border-bottom: none; }
+}
+
+@media (max-width: 600px) {
   .g-bench-row { gap: 28px; }
   .g-nav-links { gap: 16px; }
   .g-hero { padding: 64px 0 48px; }

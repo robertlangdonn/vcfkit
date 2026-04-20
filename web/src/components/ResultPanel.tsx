@@ -40,7 +40,20 @@ export function ResultPanel({ value, stats, status, error, operation }: Props) {
         )}
       </div>
 
-      <VcfEditor value={value} readOnly placeholder="Output appears here after running…" />
+      <div style={{ position: 'relative' }}>
+        <VcfEditor value={value} readOnly placeholder="Output appears here after running…" />
+        {!value && status === 'idle' && (
+          <div style={{
+            position: 'absolute', inset: 0,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            pointerEvents: 'none',
+          }}>
+            <span style={{ fontSize: '12px', color: 'var(--sl-color-gray-4)', fontFamily: 'ui-monospace, monospace' }}>
+              Press Run to see output
+            </span>
+          </div>
+        )}
+      </div>
 
       {status === 'running' && (
         <div className="result-status">

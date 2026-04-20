@@ -532,17 +532,14 @@ body {
   gap: 12px;
 }
 
-.privacy-banner {
+.privacy-note {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 8px 14px;
-  border-radius: 6px;
-  background: color-mix(in srgb, var(--vk-accent) 10%, transparent);
-  border: 1px solid color-mix(in srgb, var(--vk-accent) 30%, transparent);
+  gap: 6px;
   color: var(--vk-accent);
-  font-size: 13px;
-  font-weight: 500;
+  font-size: 11px;
+  opacity: 0.75;
+  padding-bottom: 4px;
 }
 
 .demo-tabs {

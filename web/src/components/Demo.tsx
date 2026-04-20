@@ -24,6 +24,7 @@ interface DemoState {
   error: string | null;
   stats: RunStats | null;
   truncated: boolean;
+  selectedExampleId: string | null;
 }
 
 const DEFAULT_STATE: DemoState = {
@@ -35,6 +36,7 @@ const DEFAULT_STATE: DemoState = {
   error: null,
   stats: null,
   truncated: false,
+  selectedExampleId: EXAMPLES.filter[0].id,
 };
 
 const TAB_LABELS: Record<OperationId, string> = {
@@ -47,13 +49,8 @@ export function Demo() {
   const [activeTab, setActiveTab] = useState<OperationId>('filter');
   const [states, setStates] = useState<Record<OperationId, DemoState>>({
     filter: { ...DEFAULT_STATE },
-    normalize: { ...DEFAULT_STATE, input: EXAMPLES.normalize[0].vcf, expression: '' },
-    liftover: {
-      ...DEFAULT_STATE,
-      input: EXAMPLES.liftover[0].vcf,
-      expression: '',
-      chainFile: '',
-    },
+    normalize: { ...DEFAULT_STATE, input: EXAMPLES.normalize[0].vcf, expression: '', selectedExampleId: EXAMPLES.normalize[0].id },
+    liftover: { ...DEFAULT_STATE, input: EXAMPLES.liftover[0].vcf, expression: '', chainFile: '', selectedExampleId: EXAMPLES.liftover[0].id },
   });
 
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -77,6 +74,7 @@ export function Demo() {
         status: 'idle',
         error: null,
         stats: null,
+        selectedExampleId: ex.id,
       });
     },
     [activeTab, state.expression, state.chainFile, update],
@@ -161,13 +159,13 @@ export function Demo() {
 
   return (
     <div className="demo-root">
-      {/* Privacy banner */}
-      <div className="privacy-banner">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+      {/* Privacy note */}
+      <div className="privacy-note">
+        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" aria-hidden="true" style={{ flexShrink: 0 }}>
           <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
           <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
         </svg>
-        Your VCF never leaves this tab. All processing runs locally in WebAssembly.
+        Your VCF never leaves this tab — all processing runs in WebAssembly locally.
       </div>
 
       {/* Tabs */}
@@ -187,7 +185,7 @@ export function Demo() {
 
       {/* Toolbar: example picker + file upload */}
       <div className="demo-toolbar">
-        <ExamplePicker operation={activeTab} onSelect={handleExampleSelect} />
+        <ExamplePicker operation={activeTab} onSelect={handleExampleSelect} selectedId={state.selectedExampleId} />
         <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
           <button
             className="toolbar-btn"
