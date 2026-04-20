@@ -1,0 +1,36 @@
+---
+// Three operations cards for the landing page.
+---
+
+<div class="ops-grid">
+  <div class="ops-card">
+    <div class="ops-name">normalize</div>
+    <p class="ops-desc">
+      Left-align indels, split multi-allelic sites, and validate against a reference genome.
+    </p>
+    <pre class="ops-cmd">vcfkit normalize -f ref.fa input.vcf \
+  &gt; normalized.vcf</pre>
+    <a class="ops-link" href="/commands/normalize">Docs →</a>
+  </div>
+
+  <div class="ops-card">
+    <div class="ops-name">liftover</div>
+    <p class="ops-desc">
+      Convert variants between genome builds using UCSC chain files. Unmapped records go to a reject file.
+    </p>
+    <pre class="ops-cmd">vcfkit liftover -s hg19.fa -t hg38.fa \
+  -c chain.gz input.vcf</pre>
+    <a class="ops-link" href="/commands/liftover">Docs →</a>
+  </div>
+
+  <div class="ops-card">
+    <div class="ops-name">filter</div>
+    <p class="ops-desc">
+      Keep variants matching a deterministic expression — INFO fields, FORMAT fields, CHROM, POS, QUAL, FILTER.
+    </p>
+    <pre class="ops-cmd">vcfkit filter \
+  -e "INFO/AF &lt; 0.01 &amp;&amp; FILTER == 'PASS'" \
+  input.vcf</pre>
+    <a class="ops-link" href="/commands/filter">Docs →</a>
+  </div>
+</div>

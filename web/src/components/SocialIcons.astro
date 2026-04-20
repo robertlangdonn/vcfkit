@@ -1,0 +1,13 @@
+---
+// Extends Starlight's social icons to add crates.io link.
+import Default from '@astrojs/starlight/components/SocialIcons.astro';
+---
+
+<Default {...Astro.props}><slot /></Default>
+<a
+  href="https://crates.io/crates/vcfkit-cli"
+  class="crates-link"
+  target="_blank"
+  rel="noopener noreferrer"
+  aria-label="vcfkit on crates.io"
+>crates.io</a>

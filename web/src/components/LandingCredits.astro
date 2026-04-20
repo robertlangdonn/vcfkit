@@ -1,0 +1,52 @@
+---
+// Credits section for the landing page.
+---
+
+<div class="credits-section">
+  <h2>Credits</h2>
+  <p>vcfkit exists because of decades of work by others.</p>
+
+  <div class="credits-grid">
+    <div class="credit-block">
+      <div class="credit-name">htslib and bcftools</div>
+      <p class="credit-body">
+        The reference implementations for VCF/BCF processing. Created and maintained by the
+        <a href="https://www.sanger.ac.uk/" target="_blank" rel="noopener noreferrer">Wellcome Sanger Institute</a>.
+        Primary authorship: Heng Li (original author), Petr Danecek (bcftools lead), and hundreds of
+        contributors over 15+ years. vcfkit's normalization was developed by reading bcftools source.
+        Differential tests validate against bcftools output — if they diverge, vcfkit is wrong by default.
+      </p>
+    </div>
+
+    <div class="credit-block">
+      <div class="credit-name">noodles</div>
+      <p class="credit-body">
+        Pure-Rust I/O for VCF, BCF, FASTA, and chain files, by
+        <a href="https://github.com/zaeleus" target="_blank" rel="noopener noreferrer">Michael Macias</a>.
+        Without noodles this project wouldn't exist in its current form.
+      </p>
+    </div>
+
+    <div class="credit-block">
+      <div class="credit-name">Tan, Abecasis, Kang 2015</div>
+      <p class="credit-body">
+        "Unified representation of genetic variants," <em>Bioinformatics</em> 31(13):2202–2204.
+        <a href="https://doi.org/10.1093/bioinformatics/btv112" target="_blank" rel="noopener noreferrer">
+          DOI: 10.1093/bioinformatics/btv112
+        </a>.
+        The normalization algorithm implemented in <code>vcfkit normalize</code>.
+      </p>
+    </div>
+
+    <div class="credit-block">
+      <div class="credit-name">UCSC Genome Browser</div>
+      <p class="credit-body">
+        Chain files and reference FASTAs used by <code>vcfkit liftover</code>.
+        Download chain files from
+        <a href="https://hgdownload.soe.ucsc.edu/goldenPath/" target="_blank" rel="noopener noreferrer">
+          UCSC's FTP archive
+        </a>.
+      </p>
+    </div>
+  </div>
+</div>

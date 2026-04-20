@@ -38,7 +38,10 @@ export default defineConfig({
       ],
       customCss: ['./src/styles/custom.css'],
       components: {
-        Hero: './src/components/Hero.astro',
+        Hero:        './src/components/Hero.astro',
+        SiteTitle:   './src/components/SiteTitle.astro',
+        SocialIcons: './src/components/SocialIcons.astro',
+        Footer:      './src/components/SiteFooter.astro',
       },
       head: [
         {

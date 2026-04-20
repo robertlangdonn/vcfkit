@@ -1,0 +1,42 @@
+---
+// --ask feature section for the landing page.
+// "AI" appears exactly twice here and nowhere else on the site.
+---
+
+<div class="ask-section">
+  <h2>Ask in plain English</h2>
+
+  <p>
+    Describe the filter you want. An AI translates it to a deterministic
+    expression, shows you what it will run, and asks before running.
+  </p>
+
+  <div class="ask-terminal" role="img" aria-label="vcfkit --ask command example">
+<span class="t-prompt">$</span> <span class="t-cmd">vcfkit filter --ask \
+    "common variants in European populations but rare in African" \
+    input.vcf</span>
+
+  <span class="t-label">Query:     </span> <span class="t-cmd">common variants in European populations but rare in African</span>
+  <span class="t-label">Expression:</span> <span class="t-expr">INFO/EUR_AF &gt; 0.05 &amp;&amp; INFO/AFR_AF &lt; 0.01</span>
+  <span class="t-label">Confidence:</span> <span class="t-conf">95%</span>
+
+<span class="t-prompt2">Run this filter? [Y/n/edit]</span>
+  </div>
+
+  <p class="ask-sub">
+    Your VCF data never leaves your machine. Only the header schema — field names, types, and
+    descriptions — and your query go to the AI. The translator code is open source, so you
+    can read exactly what gets sent.
+  </p>
+
+  <p class="ask-sub">
+    Low-confidence translations (below 50%) require explicit review before running — the gate
+    prevents silent wrong results on queries the schema can't fully answer.
+  </p>
+
+  <div class="ask-cta">
+    <a href="/commands/filter#natural-language-filter---ask" class="btn-secondary">
+      Set up ANTHROPIC_API_KEY →
+    </a>
+  </div>
+</div>
