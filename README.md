@@ -4,7 +4,7 @@ Fast VCF toolkit for bioinformaticians — normalize, liftover, filter — as a 
 
 **[vcfkit.dev](https://vcfkit.dev)** · [Docs](https://vcfkit.dev/introduction) · [Install](https://vcfkit.dev/install) · [Changelog](CHANGELOG.md)
 
-> **v0.3.0-alpha.4** — suitable for research pipelines and evaluation. Not validated for clinical use. [Known differences from bcftools →](docs/known_differences.md)
+> **v0.3.0** — suitable for research pipelines and evaluation. Not validated for clinical use. [Known differences from bcftools →](docs/known_differences.md)
 
 ---
 

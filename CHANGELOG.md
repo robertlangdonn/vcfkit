@@ -1,5 +1,46 @@
 # Changelog
 
+## [0.3.0] — 2026-04-20
+
+### Added
+
+- **`vcfkit filter --ask`** — natural-language filter queries via Anthropic's
+  Claude API. Describe what you want in plain English; vcfkit translates it to
+  a deterministic filter expression, shows you the translation and confidence
+  score, and asks before running. Requires `ANTHROPIC_API_KEY`.
+  - Short flag: `-a`
+  - `--yes` skips confirmation for high-confidence translations (≥51%)
+  - `--accept-low-confidence` allows `--yes` on low-confidence translations
+  - The LLM sees only the VCF header schema and your query. Variant data
+    never leaves your machine.
+  - Translation code is open source — auditable at `crates/vcfkit-cli/src/ask.rs`
+
+### Validation
+
+- Three dogfood rounds across two real VCFs (1000 Genomes chr22 1.1M variants,
+  GiAB HG001 3.9M variants), 42 queries total.
+- Confidence gate validated: compromised translations (proxy fields, array-indexing
+  workarounds, placeholder expressions) consistently score below 50% and gate.
+- Grounding verified: zero hallucinated field names across all test queries.
+- Byte-identical output verified against bcftools on compound multi-field expressions.
+
+### Known limitations
+
+- `--ask` uses header-only grounding. It cannot see field values — only names,
+  types, and descriptions. Queries requiring specific string values
+  (e.g. `INFO/varType == 'SNP'`) may need value verification.
+- Array element indexing is not supported (`FORMAT/AD[1]`). Queries needing
+  specific allele depths gate at low confidence. Tracked in issue #2.
+- `--ask` is CLI-only. The WASM browser demo uses deterministic expressions only.
+
+### Earlier alpha changes (v0.3.0-alpha.1 through alpha.4)
+
+See entries below for the incremental alpha history — the `--english` → `--ask`
+rename, confidence gate implementation, and calibration improvements from
+dogfood testing.
+
+---
+
 ## [0.3.0-alpha.4] — 2026-04-20
 
 ### Fixed
