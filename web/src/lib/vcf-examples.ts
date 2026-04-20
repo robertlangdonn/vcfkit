@@ -13,16 +13,14 @@ export const EXAMPLES: Record<'filter' | 'normalize' | 'liftover', VcfExample[]>
       label: 'Rare variants (AF < 0.01)',
       expression: "INFO/AF < 0.01",
       vcf: `##fileformat=VCFv4.2
-##FILTER=<ID=PASS,Description="All filters passed">
 ##INFO=<ID=AF,Number=A,Type=Float,Description="Allele Frequency">
 ##INFO=<ID=DP,Number=1,Type=Integer,Description="Total Depth">
 #CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO
-chr1\t100\t.\tA\tT\t50\tPASS\tAF=0.05;DP=200
-chr1\t200\t.\tC\tG\t30\tPASS\tAF=0.001;DP=180
-chr1\t300\t.\tT\tA\t80\tFail\tAF=0.5;DP=220
-chr1\t400\t.\tG\tC\t90\tPASS\tAF=0.003;DP=195
-chr1\t500\t.\tA\tG\t25\tPASS\tAF=0.12;DP=160
-chr1\t600\t.\tC\tT\t70\tPASS\tAF=0.008;DP=210
+chr1\t925952\trs3107975\tC\tT\t50\tPASS\tAF=0.45;DP=120
+chr1\t931271\trs9988001\tG\tA\t30\tPASS\tAF=0.006;DP=98
+chr1\t941119\trs2298214\tT\tC\t80\tPASS\tAF=0.72;DP=215
+chr1\t944296\trs4422948\tC\tA\t90\tPASS\tAF=0.003;DP=188
+chr7\t117548628\trs113993960\tA\tT\t60\tPASS\tAF=0.009;DP=142
 `,
     },
     {

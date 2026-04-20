@@ -1,0 +1,20 @@
+# vcfkit
+
+> Fast, single-binary VCF toolkit — normalize, liftover, filter — validated against bcftools. No htslib, no Python, no C dependencies.
+
+vcfkit is a Rust CLI for bioinformaticians. It does three operations every VCF pipeline needs, rewritten for speed and correctness. 4× faster than bcftools on normalize and filter hot paths, validated nightly on 1000 Genomes chr22 data. The same core compiles to WebAssembly and runs in the browser at vcfkit.dev.
+
+## Docs
+
+- [Introduction](https://vcfkit.dev/introduction): What vcfkit does, quick start, comparison with bcftools
+- [Install](https://vcfkit.dev/install): Homebrew, pre-built binaries (macOS/Linux/Windows), Cargo, shell completions
+- [normalize](https://vcfkit.dev/commands/normalize): Left-align indels, split multi-allelic sites, validate against reference FASTA
+- [liftover](https://vcfkit.dev/commands/liftover): Convert between genome builds (hg19, hg38, T2T-CHM13) using UCSC chain files
+- [filter](https://vcfkit.dev/commands/filter): Keep variants matching expressions; `--ask` translates plain English to expressions via Claude
+- [Benchmarks](https://vcfkit.dev/benchmarks): Methodology and results vs bcftools on 1000 Genomes chr22
+- [Known differences](https://vcfkit.dev/known-differences): Documented divergences from bcftools behavior
+- [Privacy](https://vcfkit.dev/privacy): What data vcfkit sends (and doesn't send) when using `--ask`
+
+## Optional
+
+- [llms-full.txt](https://vcfkit.dev/llms-full.txt): Full documentation as a single file for LLM context

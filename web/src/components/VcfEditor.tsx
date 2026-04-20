@@ -16,6 +16,7 @@ interface Props {
   placeholder?: string;
   readOnly?: boolean;
   minHeight?: string;
+  height?: string;
 }
 
 export function VcfEditor({
@@ -24,6 +25,7 @@ export function VcfEditor({
   placeholder = 'Paste VCF content here, or load an example above…',
   readOnly = false,
   minHeight = '280px',
+  height,
 }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const viewRef = useRef<EditorView | null>(null);
@@ -44,7 +46,7 @@ export function VcfEditor({
         EditorView.lineWrapping,
         placeholderExt(placeholder),
         EditorView.theme({
-          '&': { fontSize: '12px', minHeight },
+          '&': { fontSize: '12px', ...(height ? { height } : { minHeight }) },
           '.cm-scroller': {
             fontFamily: 'ui-monospace, "Cascadia Code", "Fira Mono", monospace',
             overflow: 'auto',

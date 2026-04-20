@@ -3,31 +3,69 @@ title: Install
 description: Install vcfkit — single static binary, zero dependencies.
 ---
 
-## From crates.io (recommended)
+## Homebrew (macOS / Linux)
+
+The fastest way to get started:
 
 ```bash
-cargo install vcfkit-cli
+brew install vcfkit
 vcfkit --version
-# vcfkit 0.1.5
 ```
-
-Requires Rust 1.75+. Install Rust from [rustup.rs](https://rustup.rs) if needed.
 
 ## Pre-built binaries
 
-Download from [GitHub Releases](https://github.com/robertlangdonn/vcfkit/releases) — no
-Rust required.
+Download from [GitHub Releases](https://github.com/robertlangdonn/vcfkit/releases) — no Rust or Homebrew required.
 
-Available for:
-- macOS (aarch64 / x86_64)
-- Linux (x86_64 / aarch64)
-- Windows (x86_64)
+### macOS
 
 ```bash
-# macOS example
+# Apple Silicon (M1/M2/M3/M4)
 curl -L https://github.com/robertlangdonn/vcfkit/releases/latest/download/vcfkit-aarch64-apple-darwin.tar.gz | tar xz
-./vcfkit --version
+sudo mv vcfkit /usr/local/bin/
+
+# Intel Mac
+curl -L https://github.com/robertlangdonn/vcfkit/releases/latest/download/vcfkit-x86_64-apple-darwin.tar.gz | tar xz
+sudo mv vcfkit /usr/local/bin/
 ```
+
+### Linux
+
+```bash
+# x86_64 (most servers and desktops)
+curl -L https://github.com/robertlangdonn/vcfkit/releases/latest/download/vcfkit-x86_64-unknown-linux-musl.tar.gz | tar xz
+sudo mv vcfkit /usr/local/bin/
+
+# ARM64 (e.g. Graviton, Raspberry Pi)
+curl -L https://github.com/robertlangdonn/vcfkit/releases/latest/download/vcfkit-aarch64-unknown-linux-musl.tar.gz | tar xz
+sudo mv vcfkit /usr/local/bin/
+```
+
+### Windows
+
+Download `vcfkit-x86_64-pc-windows-msvc.zip` from [GitHub Releases](https://github.com/robertlangdonn/vcfkit/releases/latest), extract, and add the folder to your `PATH`.
+
+Or with PowerShell:
+
+```powershell
+$url = "https://github.com/robertlangdonn/vcfkit/releases/latest/download/vcfkit-x86_64-pc-windows-msvc.zip"
+Invoke-WebRequest $url -OutFile vcfkit.zip
+Expand-Archive vcfkit.zip -DestinationPath $env:LOCALAPPDATA\vcfkit
+# Add $env:LOCALAPPDATA\vcfkit to your PATH via System Settings > Environment Variables
+```
+
+### Install script (macOS / Linux)
+
+```bash
+curl -fsSL https://vcfkit.dev/install.sh | sh
+```
+
+## From crates.io
+
+```bash
+cargo install vcfkit-cli
+```
+
+Requires Rust 1.75+. Install Rust from [rustup.rs](https://rustup.rs) if needed.
 
 ## Build from source
 
@@ -59,12 +97,11 @@ echo '##fileformat=VCFv4.2
 chr1	100	.	A	T	.	.	.' | vcfkit filter -e 'POS > 50'
 ```
 
-Expected output: the header + the variant line + a stats line.
+Expected: the header lines followed by the variant, plus a stats summary.
 
 ## Requirements
 
 - No runtime dependencies — single static binary
-- Reference FASTA files for `normalize` and `liftover` (not included; download from
-  [UCSC](https://hgdownload.soe.ucsc.edu/goldenPath/hg38/bigZips/) or
-  [Ensembl](https://ftp.ensembl.org/pub/current_fasta/))
-- Chain files for `liftover` (see [liftover docs](/vcfkit/commands/liftover))
+- Reference FASTA files for `normalize` (`-r`/`--ref`) — download from [UCSC](https://hgdownload.soe.ucsc.edu/goldenPath/hg38/bigZips/) or [Ensembl](https://ftp.ensembl.org/pub/current_fasta/)
+- Chain files for `liftover` (`--chain`) — see [liftover docs](/commands/liftover)
+- `ANTHROPIC_API_KEY` for `filter --ask` — see [filter docs](/commands/filter#natural-language-filter---ask)

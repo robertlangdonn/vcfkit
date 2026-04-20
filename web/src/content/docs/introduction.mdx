@@ -1,0 +1,77 @@
+---
+title: Introduction
+description: vcfkit — fast VCF operations as a single static binary. Normalize, liftover, and filter, validated against bcftools.
+---
+
+import { Card, CardGrid } from '@astrojs/starlight/components';
+
+vcfkit is a fast, single-binary VCF toolkit for bioinformaticians. It does three things every pipeline needs — normalize, liftover, and filter — rewritten in Rust, validated nightly against bcftools on real 1000 Genomes chr22 data.
+
+No htslib. No Python. No C dependencies. One static binary that works on macOS, Linux, and Windows.
+
+## What it does
+
+<CardGrid>
+  <Card title="normalize" icon="pencil">
+    Left-align indels, split multi-allelic sites, validate against a reference FASTA. A fast path handles biallelic SNPs/MNPs without full parsing (~80% of typical VCFs).
+    
+    [normalize docs →](/commands/normalize)
+  </Card>
+  <Card title="liftover" icon="random">
+    Convert between genome builds — hg19, hg38, T2T-CHM13 — using UCSC chain files. Handles strand flips and b37/UCSC contig name mismatches automatically.
+    
+    [liftover docs →](/commands/liftover)
+  </Card>
+  <Card title="filter" icon="magnifier">
+    Keep variants matching expressions over INFO, FORMAT, CHROM, POS, QUAL, and FILTER fields. Or describe the filter in plain English with `--ask` and review before it runs.
+    
+    [filter docs →](/commands/filter)
+  </Card>
+</CardGrid>
+
+## Quick start
+
+```bash
+# Install
+brew install vcfkit
+
+# Filter: keep rare variants
+vcfkit filter -e "INFO/AF < 0.01" input.vcf
+
+# Normalize: split multi-allelic sites
+vcfkit normalize -r ref.fa input.vcf
+
+# Liftover: hg19 → hg38
+vcfkit liftover --chain hg19ToHg38.chain.gz input.vcf
+
+# Filter with plain English (requires ANTHROPIC_API_KEY)
+vcfkit filter --ask "rare variants in Europeans but common in Africans" input.vcf
+```
+
+## How it compares to bcftools
+
+vcfkit does not replace bcftools. It does three operations well, faster, with a simpler interface. Key differences:
+
+- **4× faster** on normalize (biallelic SNP/MNP fast path) and filter (expression evaluation) — [see benchmarks](/benchmarks)
+- **Single static binary** — no shared libraries, no conda environment, no htslib
+- **`--ask` mode** — translates plain English to a deterministic filter expression using Claude; you review before it runs
+- **WASM build** — the same core runs in the browser at [vcfkit.dev](https://vcfkit.dev)
+
+Known divergences from bcftools are [documented](/known-differences).
+
+## Performance
+
+Measured on 1000 Genomes chr22 (1,103,547 variants), macOS aarch64, bcftools 1.23.1:
+
+| Operation | vcfkit | bcftools | Speedup |
+|-----------|--------|----------|---------|
+| `filter -e 'INFO/AF < 0.01'` | **422 ms** | 1,695 ms | **4.0×** |
+| `normalize --fast --no-split` | **682 ms** | 2,820 ms | **4.1×** |
+| `normalize` (standard path) | 6,481 ms | 2,820 ms | 0.43× |
+| `liftover` | 6,713 ms | — | ~164K rec/s |
+
+The fast path applies to biallelic SNPs and MNPs (~80% of typical VCFs). Standard normalize uses full noodles parsing — slower than bcftools' C implementation but required for correctness on indels and multi-allelic records. [Full methodology →](/benchmarks)
+
+## Not for clinical use
+
+vcfkit is research and pipeline tooling. It is not validated for clinical or diagnostic use.

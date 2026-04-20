@@ -10,7 +10,7 @@ import '../styles/custom.css';
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>vcfkit — Fast VCF operations</title>
   <meta name="description" content="Fast VCF operations — normalize, liftover, filter — validated against bcftools. Single binary, no htslib, no dependencies." />
-  <link rel="icon" href="/favicon.svg" />
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
   <meta property="og:title" content="vcfkit" />
   <meta property="og:description" content="Fast VCF operations. Validated against bcftools. Single binary." />
   <meta property="og:image" content="https://vcfkit.dev/og-image.png" />
@@ -34,7 +34,10 @@ import '../styles/custom.css';
       <span class="g-bracket">[</span>vcfkit<span class="g-bracket">]</span>
     </a>
     <nav class="g-nav-links" aria-label="Site navigation">
-      <a href="/install" class="g-nav-link">Docs</a>
+      <a href="/install" class="g-nav-link g-nav-icon-link">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
+        Docs
+      </a>
       <a href="https://github.com/robertlangdonn/vcfkit" target="_blank" rel="noopener noreferrer" class="g-nav-link g-nav-icon-link" aria-label="GitHub repository">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
           <path d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z"/>
@@ -47,7 +50,7 @@ import '../styles/custom.css';
         </svg>
         crates.io
       </a>
-      <a href="https://prasadkhake.com" target="_blank" rel="noopener noreferrer" class="g-nav-link g-nav-contact">Contact</a>
+      <a href="#contact" class="g-nav-link g-nav-contact">Contact</a>
     </nav>
   </div>
 </header>
@@ -68,14 +71,9 @@ import '../styles/custom.css';
       </p>
       <div class="g-install">
         <code class="g-install-cmd" id="install-cmd">brew install vcfkit</code>
-        <button class="g-copy-btn" id="copy-btn" aria-label="Copy install command" onclick="
-          navigator.clipboard.writeText('brew install vcfkit').then(function(){
-            var b = document.getElementById('copy-btn');
-            b.textContent = 'copied';
-            b.classList.add('g-copy-btn--done');
-            setTimeout(function(){ b.textContent = 'copy'; b.classList.remove('g-copy-btn--done'); }, 1800);
-          });
-        ">copy</button>
+        <button class="g-copy-btn" id="copy-btn" aria-label="Copy install command">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+        </button>
       </div>
       <p class="g-hero-sub">
         or <a href="/install">see all install options →</a>
@@ -87,8 +85,7 @@ import '../styles/custom.css';
   <section class="g-section g-demo-section">
     <div class="g-inner">
       <div class="g-demo-hd">
-        <h2 class="g-section-h">Demo</h2>
-        <p class="g-demo-sub">Nothing uploads. All processing runs in WebAssembly inside your browser.</p>
+        <h2 class="g-section-h">Try it</h2>
       </div>
       <Demo client:only="react" />
     </div>
@@ -159,7 +156,7 @@ import '../styles/custom.css';
   </section>
 
   <!-- ── Benchmarks ────────────────────────────────────────────────────── -->
-  <section class="g-section g-section--accent">
+  <section class="g-section">
     <div class="g-inner">
       <h2 class="g-section-h">Benchmarks</h2>
       <div class="g-bench-row">
@@ -174,8 +171,8 @@ import '../styles/custom.css';
       </div>
       <p class="g-bench-note">
         Measured on 1000 Genomes chr22 · 1,103,547 variants · macOS aarch64 · bcftools 1.23.1.
-        Liftover and multi-allelic normalize match bcftools within ±2%.
-        <a href="https://github.com/robertlangdonn/vcfkit/blob/main/BENCHMARKS.md" target="_blank" rel="noopener noreferrer">Methodology →</a>
+        Standard normalize (full parse path) is 0.43× bcftools — the fast path is the 4× case.
+        <a href="/benchmarks">Full methodology →</a>
       </p>
     </div>
   </section>
@@ -223,9 +220,9 @@ import '../styles/custom.css';
           <li>Nightly CI against bcftools on 1000 Genomes data</li>
         </ul>
         <p>
-          <a href="https://github.com/robertlangdonn/vcfkit/actions/workflows/nightly-real-tests.yml" target="_blank" rel="noopener noreferrer">Nightly differential tests →</a>
+          <a href="https://github.com/robertlangdonn/vcfkit/actions/workflows/nightly-real-tests.yml" target="_blank" rel="noopener noreferrer" style="display:inline-flex;align-items:center;gap:4px">Nightly differential tests <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg></a>
           &nbsp;&nbsp;
-          <a href="/known-differences">Known differences →</a>
+          <a href="/known-differences" style="display:inline-flex;align-items:center;gap:4px">Known differences <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><polyline points="9 18 15 12 9 6"/></svg></a>
         </p>
         <p class="g-disclaimer">
           Not validated for clinical use. vcfkit is research and pipeline tooling only.
@@ -252,6 +249,21 @@ curl -fsSL https://vcfkit.dev/install.sh | sh</code></pre>
     </div>
   </section>
 
+  <!-- ── Contact ─────────────────────────────────────────────────────── -->
+  <section class="g-section" id="contact">
+    <div class="g-inner">
+      <h2 class="g-section-h">Get in touch</h2>
+      <div class="g-prose">
+        <p>Questions, bug reports, and feedback welcome.</p>
+        <ul class="g-list">
+          <li><a href="https://github.com/robertlangdonn/vcfkit/issues" target="_blank" rel="noopener noreferrer">GitHub Issues</a> — bug reports and feature requests</li>
+          <li><a href="https://github.com/robertlangdonn/vcfkit/discussions" target="_blank" rel="noopener noreferrer">GitHub Discussions</a> — questions and ideas</li>
+          <li><a href="mailto:prasadkhake@gmail.com">prasadkhake@gmail.com</a> </li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
 </main>
 
 <!-- ── Footer ──────────────────────────────────────────────────────────── -->
@@ -269,20 +281,43 @@ curl -fsSL https://vcfkit.dev/install.sh | sh</code></pre>
     <span class="g-footer-sep">·</span>
     <span><a href="/credits">Credits</a></span>
     <span class="g-footer-sep">·</span>
+    <span><a href="/llms.txt">llms.txt</a></span>
+    <span class="g-footer-sep">·</span>
     <span class="g-footer-copy">© 2026</span>
   </div>
 </footer>
 
 <script is:inline>
+  var COPY_ICON = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>';
+  var CHECK_ICON = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>';
+
   document.querySelectorAll('.g-op-copy').forEach(function(btn) {
     btn.addEventListener('click', function() {
       var text = btn.getAttribute('data-copy');
       navigator.clipboard.writeText(text).then(function() {
+        btn.innerHTML = CHECK_ICON;
         btn.classList.add('g-op-copy--done');
-        setTimeout(function() { btn.classList.remove('g-op-copy--done'); }, 1800);
+        setTimeout(function() {
+          btn.innerHTML = COPY_ICON;
+          btn.classList.remove('g-op-copy--done');
+        }, 1800);
       });
     });
   });
+
+  var heroBtn = document.getElementById('copy-btn');
+  if (heroBtn) {
+    heroBtn.addEventListener('click', function() {
+      navigator.clipboard.writeText('brew install vcfkit').then(function() {
+        heroBtn.innerHTML = CHECK_ICON;
+        heroBtn.classList.add('g-copy-btn--done');
+        setTimeout(function() {
+          heroBtn.innerHTML = COPY_ICON;
+          heroBtn.classList.remove('g-copy-btn--done');
+        }, 1800);
+      });
+    });
+  }
 </script>
 
 </body>
@@ -381,6 +416,7 @@ code {
   max-width: 620px;
 }
 .g-prose p {
+  font-size: 0.9375rem;
   color: var(--g-text);
   line-height: 1.75;
   margin-bottom: 16px;
@@ -470,8 +506,7 @@ code {
   color: var(--g-text-dim);
   max-width: 520px;
   margin: 0 auto 32px;
-  line-height: 1.6;
-  opacity: 0.8;
+  line-height: 1.75;
 }
 
 .g-install {
@@ -500,11 +535,12 @@ code {
   border: none;
   border-left: 1px solid var(--g-border);
   color: var(--g-text-dim);
-  font-family: var(--font-mono);
-  font-size: 0.8rem;
-  padding: 10px 14px;
+  padding: 10px 12px;
   cursor: pointer;
   transition: color 0.15s, background 0.15s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 .g-copy-btn:hover { color: var(--g-text); background: var(--g-border); }
 .g-copy-btn--done { color: var(--g-accent); }
@@ -512,6 +548,7 @@ code {
 .g-hero-sub {
   font-size: 0.85rem;
   color: var(--g-text-dim);
+  line-height: 1.6;
 }
 
 /* ── Demo section ────────────────────────────────────────────────────── */
@@ -582,12 +619,13 @@ code {
   display: flex;
   flex-direction: column;
   gap: 12px;
+  min-width: 0;
 }
 
 .g-op dd {
-  color: var(--g-text-dim);
-  line-height: 1.7;
-  font-size: 0.9rem;
+  font-size: 0.9375rem;
+  color: var(--g-text);
+  line-height: 1.75;
   margin: 0;
 }
 
@@ -595,10 +633,13 @@ code {
   position: relative;
   display: flex;
   align-items: stretch;
+  min-width: 0;
+  max-width: 100%;
 }
 
 .g-op-cmd {
   flex: 1;
+  min-width: 0;
   background: var(--g-code-bg);
   border: 1px solid var(--g-border);
   border-right: none;
@@ -609,7 +650,7 @@ code {
   margin: 0;
   font-family: var(--font-mono);
   font-size: 0.78rem;
-  color: var(--g-text-dim);
+  color: var(--g-text);
 }
 .g-op-cmd code {
   background: transparent;
@@ -660,15 +701,15 @@ code {
 }
 
 .g-bench-label {
-  font-size: 0.875rem;
-  color: var(--g-text-dim);
-  line-height: 1.4;
+  font-size: 0.9375rem;
+  color: var(--g-text);
+  line-height: 1.5;
 }
 
 .g-bench-note {
-  font-size: 0.825rem;
+  font-size: 0.85rem;
   color: var(--g-text-dim);
-  line-height: 1.6;
+  line-height: 1.7;
 }
 
 /* ── Code block ──────────────────────────────────────────────────────── */
@@ -699,8 +740,8 @@ code {
 
 /* ── Note ────────────────────────────────────────────────────────────── */
 .g-note {
-  font-size: 0.85rem !important;
-  color: var(--g-text-dim) !important;
+  font-size: 0.85rem;
+  color: var(--g-text-dim);
 }
 
 /* ── List ────────────────────────────────────────────────────────────── */
@@ -715,6 +756,7 @@ code {
 .g-list li {
   font-size: 0.9375rem;
   color: var(--g-text);
+  line-height: 1.75;
   padding-left: 16px;
   position: relative;
 }
@@ -746,24 +788,17 @@ code {
 
 /* ── Disclaimer ──────────────────────────────────────────────────────── */
 .g-disclaimer {
-  font-size: 0.8rem !important;
-  color: var(--g-text-dim) !important;
+  font-size: 0.85rem;
+  color: var(--g-text-dim);
   opacity: 0.7;
   border-top: 1px solid var(--g-border);
   padding-top: 16px;
-  margin-top: 20px !important;
+  margin-top: 20px;
 }
 
 /* ── Demo header ─────────────────────────────────────────────────────── */
 .g-demo-hd {
   margin-bottom: 20px;
-}
-.g-demo-hd .g-section-h { margin-bottom: 6px; }
-.g-demo-sub {
-  font-size: 0.85rem;
-  color: var(--g-text-dim);
-  opacity: 0.75;
-  margin: 0;
 }
 
 /* ── Responsive ──────────────────────────────────────────────────────── */

@@ -667,7 +667,7 @@ body {
 .run-btn {
   position: relative;
   overflow: hidden;
-  padding: 9px 24px;
+  padding: 9px 20px;
   background: var(--vk-signature);
   border: none;
   border-radius: 6px;
@@ -679,6 +679,9 @@ body {
   align-self: flex-end;
   transition: opacity 0.15s;
   font-family: var(--font-sans);
+  display: flex;
+  align-items: center;
+  gap: 7px;
 }
 .run-btn:hover { opacity: 0.88; }
 .run-btn:disabled { opacity: 0.45; cursor: not-allowed; }
@@ -732,16 +735,17 @@ body {
 }
 
 .cli-copy {
-  font-size: 11px;
-  padding: 2px 8px;
+  padding: 4px 6px;
   background: var(--vk-code-bg);
   border: 1px solid var(--vk-border);
   border-radius: 4px;
   cursor: pointer;
   color: var(--vk-text-muted);
-  white-space: nowrap;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
   transition: color 0.15s;
-  font-family: var(--font-sans);
 }
 .cli-copy:hover { color: var(--vk-accent); }
 

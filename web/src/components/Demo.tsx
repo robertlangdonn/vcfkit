@@ -219,6 +219,7 @@ export function Demo() {
           <VcfEditor
             value={state.input}
             onChange={(v) => update(activeTab, { input: v })}
+            height="260px"
           />
         </div>
         <div className="demo-editor-col">
@@ -290,7 +291,17 @@ export function Demo() {
           onClick={handleRun}
           disabled={state.status === 'running'}
         >
-          {state.status === 'running' ? 'Running…' : `Run ${activeTab}`}
+          {state.status === 'running' ? (
+            <>
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true" style={{ flexShrink: 0, opacity: 0.7 }}><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+              Running…
+            </>
+          ) : (
+            <>
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" style={{ flexShrink: 0 }}><polygon points="5 3 19 12 5 21 5 3"/></svg>
+              Run {activeTab}
+            </>
+          )}
         </button>
       </div>
 

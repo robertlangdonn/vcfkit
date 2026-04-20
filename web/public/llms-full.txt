@@ -1,0 +1,263 @@
+# vcfkit — Full Documentation
+
+> Fast, single-binary VCF toolkit — normalize, liftover, filter — validated against bcftools. No htslib, no Python, no C dependencies.
+
+vcfkit is a Rust CLI for bioinformaticians. It does three operations every VCF pipeline needs, rewritten for speed and correctness. 4× faster than bcftools on normalize and filter hot paths, validated nightly on 1000 Genomes chr22 data. The same core compiles to WebAssembly and runs in the browser at vcfkit.dev.
+
+Not for clinical use. Research and pipeline tooling only.
+
+---
+
+## Install
+
+### Homebrew (macOS / Linux)
+```
+brew install vcfkit
+```
+
+### Pre-built binaries
+
+macOS Apple Silicon:
+```
+curl -L https://github.com/robertlangdonn/vcfkit/releases/latest/download/vcfkit-aarch64-apple-darwin.tar.gz | tar xz
+sudo mv vcfkit /usr/local/bin/
+```
+
+macOS Intel:
+```
+curl -L https://github.com/robertlangdonn/vcfkit/releases/latest/download/vcfkit-x86_64-apple-darwin.tar.gz | tar xz
+sudo mv vcfkit /usr/local/bin/
+```
+
+Linux x86_64:
+```
+curl -L https://github.com/robertlangdonn/vcfkit/releases/latest/download/vcfkit-x86_64-unknown-linux-musl.tar.gz | tar xz
+sudo mv vcfkit /usr/local/bin/
+```
+
+Linux ARM64:
+```
+curl -L https://github.com/robertlangdonn/vcfkit/releases/latest/download/vcfkit-aarch64-unknown-linux-musl.tar.gz | tar xz
+sudo mv vcfkit /usr/local/bin/
+```
+
+Windows: download vcfkit-x86_64-pc-windows-msvc.zip from GitHub Releases and add to PATH.
+
+Install script (macOS/Linux):
+```
+curl -fsSL https://vcfkit.dev/install.sh | sh
+```
+
+### Cargo
+```
+cargo install vcfkit-cli
+```
+Requires Rust 1.75+.
+
+### Shell completions
+```
+vcfkit completions bash >> ~/.bashrc
+vcfkit completions zsh >> ~/.zshrc
+vcfkit completions fish > ~/.config/fish/completions/vcfkit.fish
+```
+
+---
+
+## normalize
+
+Left-align indels, split multi-allelic sites into biallelic records, and optionally validate REF alleles against a reference FASTA.
+
+### Synopsis
+```
+vcfkit normalize [OPTIONS] --reference <FASTA> [INPUT]
+```
+
+### Options
+- `-f, --reference <FASTA>` — Reference genome FASTA (required)
+- `-o, --output <FILE>` — Output file (default: stdout)
+- `--no-split` — Keep multi-allelic sites (don't split)
+- `--no-left-align` — Skip left-alignment of indels
+- `--check-ref <MODE>` — REF mismatch handling: ignore / warn (default) / error
+- `--fast` — Fast path for biallelic SNPs/MNPs (~4× faster)
+- `-q, --quiet` — Suppress progress bar
+
+### Examples
+```
+# Standard: left-align + split multi-allelic
+vcfkit normalize -f hg38.fa input.vcf > normalized.vcf
+
+# Fast path
+vcfkit normalize --fast -f hg38.fa input.vcf > normalized.vcf
+
+# Keep multi-allelic sites
+vcfkit normalize -f hg38.fa --no-split input.vcf
+
+# Strict REF validation
+vcfkit normalize -f hg38.fa --check-ref error input.vcf
+```
+
+### bcftools equivalence
+- `vcfkit normalize -f ref.fa` ≈ `bcftools norm -f ref.fa -m-any -c w`
+- `vcfkit normalize -f ref.fa --no-split` ≈ `bcftools norm -f ref.fa -c w`
+
+### Known differences
+Multi-allelic indels are passed through unchanged (not left-aligned). Biallelic indel left-alignment is fully implemented. Joint multi-allelic left-alignment is planned for v0.2.
+
+---
+
+## liftover
+
+Convert variant coordinates between genome builds using UCSC chain files.
+
+### Synopsis
+```
+vcfkit liftover [OPTIONS] --source <FASTA> --target <FASTA> --chain <CHAIN> [INPUT]
+```
+
+### Options
+- `-s, --source <FASTA>` — Source genome FASTA
+- `-t, --target <FASTA>` — Target genome FASTA
+- `-c, --chain <CHAIN>` — UCSC chain file (.chain or .chain.gz)
+- `-o, --output <FILE>` — Output file (default: stdout)
+- `-r, --reject <FILE>` — Write unmapped records here
+- `--write-src-coords` — Add INFO/SRC_CONTIG and INFO/SRC_POS to output
+- `--allow-contig-mismatch` — Suppress contig-name mismatch error (b37 vs UCSC naming)
+
+### Examples
+```
+# hg19 → hg38
+vcfkit liftover -s hg19.fa -t hg38.fa -c hg19ToHg38.over.chain.gz input.vcf -o output.vcf
+
+# Keep rejected records
+vcfkit liftover -s hg19.fa -t hg38.fa -c hg19ToHg38.over.chain.gz -r rejects.vcf input.vcf
+
+# b37 VCF with UCSC chain (suppress contig error)
+vcfkit liftover --allow-contig-mismatch -s b37.fa -t hg38.fa -c hg19ToHg38.over.chain.gz input.vcf
+```
+
+### Chain file download
+```
+# hg19 → hg38
+wget https://hgdownload.soe.ucsc.edu/goldenPath/hg19/liftOver/hg19ToHg38.over.chain.gz
+
+# hg38 → hg19
+wget https://hgdownload.soe.ucsc.edu/goldenPath/hg38/liftOver/hg38ToHg19.over.chain.gz
+
+# hg38 → T2T-CHM13v2.0
+wget https://hgdownload.soe.ucsc.edu/goldenPath/hg38/liftOver/hg38ToHs1.over.chain.gz
+```
+
+---
+
+## filter
+
+Keep variants matching an expression over VCF fields.
+
+### Synopsis
+```
+vcfkit filter [OPTIONS] --expression <EXPR> [INPUT]
+```
+
+### Options
+- `-e, --expression <EXPR>` — Filter expression (mutually exclusive with --ask)
+- `-a, --ask <QUERY>` — Natural-language query, translated via Anthropic API
+- `--yes` — Skip confirmation when using --ask
+- `--accept-low-confidence` — Proceed when translation confidence is below 50%
+- `-o, --output <FILE>` — Output file (default: stdout)
+- `-v, --invert` — Keep records that do NOT match
+- `-q, --quiet` — Suppress progress bar
+
+### Examples
+```
+# Rare variants
+vcfkit filter -e "INFO/AF < 0.01" input.vcf
+
+# High quality PASS variants
+vcfkit filter -e "QUAL > 30 && FILTER == 'PASS'" input.vcf
+
+# Region filter
+vcfkit filter -e "CHROM == 'chr17' && POS >= 43044295 && POS <= 43125483" input.vcf
+
+# Substring match
+vcfkit filter -e "INFO/CSQ ~ 'missense'" input.vcf
+
+# Inverted filter
+vcfkit filter -e "FILTER == 'PASS'" --invert input.vcf
+
+# From stdin
+bcftools view input.bcf | vcfkit filter -e "INFO/DP > 10"
+```
+
+### Expression language
+
+Fields:
+- `INFO/<key>` — per INFO field type (Float, Integer, String)
+- `FORMAT/<key>` — first sample only
+- `CHROM` — string, e.g. 'chr1'
+- `POS` — integer, 1-based
+- `QUAL` — float; missing (.) evaluates to false
+- `FILTER` — string, e.g. 'PASS'
+
+Operators: `<`, `<=`, `>`, `>=`, `==`, `!=`, `&&`, `||`, `!`, `~` (substring), `!~`
+
+String literals use single quotes: `'PASS'`, `'chr1'`
+
+Multi-allelic INFO fields with Number=A use any-element semantics: `INFO/AF < 0.01` matches if any ALT allele has AF < 0.01.
+
+### Natural-language filter (--ask)
+
+Requires `ANTHROPIC_API_KEY`. Translates plain English to a deterministic filter expression using Claude. You review the expression before it runs.
+
+```
+export ANTHROPIC_API_KEY=sk-ant-...
+
+# Interactive (shows expression for review)
+vcfkit filter --ask "rare PASS variants on chromosome 17" input.vcf
+
+# Non-interactive
+vcfkit filter -a "rare PASS variants" --yes input.vcf
+```
+
+The LLM sees: your query + the VCF header schema (INFO/FORMAT field names, types, descriptions).
+Variant data (CHROM, POS, REF, ALT, genotypes) never leaves your machine.
+
+When confidence < 50%, --yes is blocked. Add --accept-low-confidence to override.
+Requires an input file path; stdin is not supported.
+Not available in the browser demo.
+
+---
+
+## Performance
+
+Measured on 1000 Genomes chr22 (1,103,547 variants), macOS aarch64, bcftools 1.23.1:
+
+| Operation                     | vcfkit    | bcftools  | Speedup  |
+|-------------------------------|-----------|-----------|----------|
+| filter -e 'INFO/AF < 0.01'    | 422 ms    | 1,695 ms  | 4.0×     |
+| normalize --fast --no-split   | 682 ms    | 2,820 ms  | 4.1×     |
+| normalize (standard path)     | 6,481 ms  | 2,820 ms  | 0.43×    |
+| liftover                      | 6,713 ms  | —         | ~164K rec/s |
+
+The fast path applies to biallelic SNPs/MNPs. Standard normalize is slower than bcftools because it uses a pure-Rust parser (noodles) rather than htslib's C implementation. The fast path is representative for typical variant call VCFs.
+
+---
+
+## Known differences from bcftools
+
+1. Multi-allelic indel left-alignment: passed through unchanged in v0.1.x. Fix planned for v0.2.
+2. All other operations match bcftools output in differential tests on 1000 Genomes chr22.
+
+---
+
+## Privacy
+
+- CLI operations: no network access, no data sent anywhere
+- Telemetry: opt-in only, configured at ~/.config/vcfkit/config.toml, never includes variant data
+- --ask: sends your query text + VCF header schema to Anthropic API. Variant data (CHROM, POS, REF, ALT, genotypes) never sent.
+- Browser demo: all processing in WebAssembly, nothing uploaded
+
+---
+
+## Source
+
+https://github.com/robertlangdonn/vcfkit

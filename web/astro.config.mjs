@@ -24,7 +24,7 @@ export default defineConfig({
         { icon: 'github', label: 'GitHub', href: 'https://github.com/robertlangdonn/vcfkit' },
       ],
       sidebar: [
-        { label: 'Introduction', link: '/' },
+        { label: 'Introduction', link: '/introduction' },
         { label: 'Install', link: '/install' },
         {
           label: 'Commands',
@@ -47,6 +47,10 @@ export default defineConfig({
         Footer:      './src/components/SiteFooter.astro',
       },
       head: [
+        {
+          tag: 'link',
+          attrs: { rel: 'icon', href: '/favicon.svg', type: 'image/svg+xml' },
+        },
         {
           tag: 'meta',
           attrs: { property: 'og:image', content: 'https://vcfkit.dev/og-image.png' },

@@ -41,7 +41,7 @@ export function ResultPanel({ value, stats, status, error, operation }: Props) {
       </div>
 
       <div style={{ position: 'relative' }}>
-        <VcfEditor value={value} readOnly placeholder="Output appears here after running…" />
+        <VcfEditor value={value} readOnly placeholder="Output appears here after running…" height="260px" />
         {!value && status === 'idle' && (
           <div style={{
             position: 'absolute', inset: 0,
