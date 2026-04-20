@@ -85,7 +85,7 @@ import '../styles/custom.css';
 
   <!-- ── Demo ──────────────────────────────────────────────────────────── -->
   <section class="g-section g-demo-section">
-    <div class="g-inner g-inner--wide">
+    <div class="g-inner">
       <div class="g-demo-hd">
         <h2 class="g-section-h">Demo</h2>
         <p class="g-demo-sub">Nothing uploads. All processing runs in WebAssembly inside your browser.</p>
@@ -96,18 +96,20 @@ import '../styles/custom.css';
 
   <!-- ── What ──────────────────────────────────────────────────────────── -->
   <section class="g-section">
-    <div class="g-inner g-inner--prose">
+    <div class="g-inner">
       <h2 class="g-section-h">What it is</h2>
-      <p>
-        vcfkit does three things every VCF pipeline needs — normalize, liftover, and filter —
-        rewritten in Rust for speed and correctness. One static binary with no htslib dependency,
-        measurably faster than bcftools on hot paths, and validated against it on real 1000 Genomes data.
-      </p>
-      <p>
-        It doesn't replace bcftools. It does three operations well, with an optional natural-language
-        filter that translates plain English to a deterministic expression.
-        The same core runs in your browser via WebAssembly — nothing in the demo above uploads anywhere.
-      </p>
+      <div class="g-prose">
+        <p>
+          vcfkit does three things every VCF pipeline needs — normalize, liftover, and filter —
+          rewritten in Rust for speed and correctness. One static binary with no htslib dependency,
+          measurably faster than bcftools on hot paths, and validated against it on real 1000 Genomes data.
+        </p>
+        <p>
+          It doesn't replace bcftools. It does three operations well, with an optional natural-language
+          filter that translates plain English to a deterministic expression.
+          The same core runs in your browser via WebAssembly — nothing in the demo above uploads anywhere.
+        </p>
+      </div>
     </div>
   </section>
 
@@ -158,7 +160,7 @@ import '../styles/custom.css';
 
   <!-- ── Benchmarks ────────────────────────────────────────────────────── -->
   <section class="g-section g-section--accent">
-    <div class="g-inner g-inner--prose">
+    <div class="g-inner">
       <h2 class="g-section-h">Benchmarks</h2>
       <div class="g-bench-row">
         <div class="g-bench-stat">
@@ -180,14 +182,15 @@ import '../styles/custom.css';
 
   <!-- ── Ask ───────────────────────────────────────────────────────────── -->
   <section class="g-section">
-    <div class="g-inner g-inner--prose">
+    <div class="g-inner">
       <h2 class="g-section-h">Ask in plain English</h2>
-      <p>
-        Describe the filter you want. vcfkit translates it to a deterministic expression using Claude,
-        shows you what it will run, and asks before running. Your VCF data never leaves your machine —
-        only the header schema goes to the API.
-      </p>
-      <pre class="g-pre"><code><span class="p-dim">$</span> vcfkit filter --ask \
+      <div class="g-prose">
+        <p>
+          Describe the filter you want. vcfkit translates it to a deterministic expression using Claude,
+          shows you what it will run, and asks before running. Your VCF data never leaves your machine —
+          only the header schema goes to the API.
+        </p>
+        <pre class="g-pre"><code><span class="p-dim">$</span> vcfkit filter --ask \
     <span class="p-str">"common variants in Europeans but rare in Africans"</span> \
     input.vcf
 
@@ -195,44 +198,48 @@ import '../styles/custom.css';
 <span class="p-label">Confidence:</span> 95%
 
 <span class="p-prompt">Run this filter? [Y/n/edit]</span></code></pre>
-      <p class="g-note">
-        Requires <code>ANTHROPIC_API_KEY</code>.
-        Translations below 50% confidence require explicit review.
-        <a href="/commands/filter#natural-language-filter---ask">Setup →</a>
-      </p>
+        <p class="g-note">
+          Requires <code>ANTHROPIC_API_KEY</code>.
+          Translations below 50% confidence require explicit review.
+          <a href="/commands/filter#natural-language-filter---ask">Setup →</a>
+        </p>
+      </div>
     </div>
   </section>
 
   <!-- ── Validation ────────────────────────────────────────────────────── -->
   <section class="g-section">
-    <div class="g-inner g-inner--prose">
+    <div class="g-inner">
       <h2 class="g-section-h">Correctness</h2>
-      <p>
-        Every operation is validated against bcftools in differential tests on real 1000 Genomes chr22 data.
-        Tests run nightly in CI. Known differences are documented.
-      </p>
-      <ul class="g-list">
-        <li>100+ unit and integration tests</li>
-        <li>Differential tests against bcftools on 1.1M real variants</li>
-        <li>WASM parity tests — browser and CLI produce identical output</li>
-        <li>Nightly CI against bcftools on 1000 Genomes data</li>
-      </ul>
-      <p>
-        <a href="https://github.com/robertlangdonn/vcfkit/actions/workflows/nightly-real-tests.yml" target="_blank" rel="noopener noreferrer">Nightly differential tests →</a>
-        &nbsp;&nbsp;
-        <a href="/known-differences">Known differences →</a>
-      </p>
-      <p class="g-disclaimer">
-        Not validated for clinical use. vcfkit is research and pipeline tooling only.
-      </p>
+      <div class="g-prose">
+        <p>
+          Every operation is validated against bcftools in differential tests on real 1000 Genomes chr22 data.
+          Tests run nightly in CI. Known differences are documented.
+        </p>
+        <ul class="g-list">
+          <li>100+ unit and integration tests</li>
+          <li>Differential tests against bcftools on 1.1M real variants</li>
+          <li>WASM parity tests — browser and CLI produce identical output</li>
+          <li>Nightly CI against bcftools on 1000 Genomes data</li>
+        </ul>
+        <p>
+          <a href="https://github.com/robertlangdonn/vcfkit/actions/workflows/nightly-real-tests.yml" target="_blank" rel="noopener noreferrer">Nightly differential tests →</a>
+          &nbsp;&nbsp;
+          <a href="/known-differences">Known differences →</a>
+        </p>
+        <p class="g-disclaimer">
+          Not validated for clinical use. vcfkit is research and pipeline tooling only.
+        </p>
+      </div>
     </div>
   </section>
 
   <!-- ── Install ───────────────────────────────────────────────────────── -->
   <section class="g-section">
-    <div class="g-inner g-inner--prose">
+    <div class="g-inner">
       <h2 class="g-section-h">Install</h2>
-      <pre class="g-pre"><code><span class="p-dim"># Homebrew</span>
+      <div class="g-prose">
+        <pre class="g-pre"><code><span class="p-dim"># Homebrew</span>
 brew install vcfkit
 
 <span class="p-dim"># Cargo</span>
@@ -240,7 +247,8 @@ cargo install vcfkit-cli
 
 <span class="p-dim"># Prebuilt binary (macOS, Linux, Windows)</span>
 curl -fsSL https://vcfkit.dev/install.sh | sh</code></pre>
-      <p><a href="/install">Full install instructions and shell completions →</a></p>
+        <p><a href="/install">Full install instructions and shell completions →</a></p>
+      </div>
     </div>
   </section>
 
@@ -361,14 +369,23 @@ code {
   color: var(--g-text);
 }
 
-/* ── Layout helpers ──────────────────────────────────────────────────── */
+/* ── Layout — one container, one padding ─────────────────────────────── */
 .g-inner {
   max-width: var(--g-max);
   margin: 0 auto;
-  padding: 0 24px;
+  padding: 0 32px;
 }
-.g-inner--wide { max-width: var(--g-max-wide); }
-.g-inner--prose { max-width: 680px; }
+
+/* Narrow prose lives inside g-inner — heading aligns at the same edge */
+.g-prose {
+  max-width: 620px;
+}
+.g-prose p {
+  color: var(--g-text);
+  line-height: 1.75;
+  margin-bottom: 16px;
+}
+.g-prose p:last-child { margin-bottom: 0; }
 
 /* ── Nav ─────────────────────────────────────────────────────────────── */
 .g-nav {
@@ -385,7 +402,7 @@ code {
 .g-nav-inner {
   max-width: var(--g-max);
   margin: 0 auto;
-  padding: 0 24px;
+  padding: 0 32px;
   height: 100%;
   display: flex;
   align-items: center;
@@ -533,12 +550,6 @@ code {
   flex-shrink: 0;
 }
 
-.g-section p {
-  color: var(--g-text);
-  line-height: 1.75;
-  margin-bottom: 16px;
-}
-.g-section p:last-child { margin-bottom: 0; }
 
 /* ── Operations ──────────────────────────────────────────────────────── */
 .g-ops {
@@ -724,6 +735,7 @@ code {
   flex-wrap: wrap;
   gap: 8px;
   align-items: center;
+  justify-content: center;
   font-size: 0.825rem;
   color: var(--g-text-dim);
 }
