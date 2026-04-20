@@ -41,7 +41,7 @@ import '../styles/custom.css';
         </svg>
         GitHub
       </a>
-      <a href="https://crates.io/crates/vcfkit-cli" target="_blank" rel="noopener noreferrer" class="g-nav-link g-nav-icon-link" aria-label="vcfkit on crates.io">
+      <a href="https://crates.io/crates/vcfkit-cli" target="_blank" rel="noopener noreferrer" class="g-nav-link g-nav-icon-link g-nav-crates" aria-label="vcfkit on crates.io">
         <svg width="14" height="14" viewBox="0 0 512 512" fill="currentColor" aria-hidden="true">
           <path d="M239.1 6.3l-208 78c-18.7 7-31.1 25-31.1 45v225.1c0 18.2 10.3 34.8 26.5 42.9l208 104c13.5 6.8 29.4 6.8 42.9 0l208-104c16.3-8.1 26.5-24.8 26.5-42.9V129.3c0-20-12.4-37.9-31.1-45l-208-78C262 2.2 250 2.2 239.1 6.3zM256 68.4l192 72v1.1l-192 78-192-78v-1.1l192-72zm32 356V275.5l160-65v133.9l-160 80z"/>
         </svg>
@@ -84,11 +84,11 @@ import '../styles/custom.css';
   </section>
 
   <!-- ── Demo ──────────────────────────────────────────────────────────── -->
-  <section class="g-demo-section">
+  <section class="g-section g-demo-section">
     <div class="g-inner g-inner--wide">
-      <div class="g-demo-label">
+      <div class="g-demo-hd">
         <h2 class="g-section-h">Demo</h2>
-        <span class="g-demo-sublabel">Nothing uploads — WebAssembly runs locally in your browser</span>
+        <p class="g-demo-sub">Nothing uploads. All processing runs in WebAssembly inside your browser.</p>
       </div>
       <Demo client:only="react" />
     </div>
@@ -118,41 +118,38 @@ import '../styles/custom.css';
       <dl class="g-ops">
         <div class="g-op">
           <dt><a href="/commands/normalize">normalize</a></dt>
-          <dd>
-            Left-align indels and split multi-allelic sites. Validates against a reference genome.
-            A fast path handles biallelic SNPs/MNPs without full parsing (~80% of typical VCFs).
-          </dd>
-          <div class="g-op-cmd-wrap">
-            <pre class="g-op-cmd"><code>vcfkit normalize -r ref.fa input.vcf</code></pre>
-            <button class="g-op-copy" data-copy="vcfkit normalize -r ref.fa input.vcf" aria-label="Copy command" title="Copy">
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
-            </button>
+          <div class="g-op-body">
+            <dd>Left-align indels and split multi-allelic sites. Validates against a reference genome. A fast path handles biallelic SNPs/MNPs without full parsing (~80% of typical VCFs).</dd>
+            <div class="g-op-cmd-wrap">
+              <pre class="g-op-cmd"><code>vcfkit normalize -r ref.fa input.vcf</code></pre>
+              <button class="g-op-copy" data-copy="vcfkit normalize -r ref.fa input.vcf" aria-label="Copy command" title="Copy">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+              </button>
+            </div>
           </div>
         </div>
         <div class="g-op">
           <dt><a href="/commands/liftover">liftover</a></dt>
-          <dd>
-            Convert between genome builds — hg19, hg38, T2T-CHM13 — using UCSC chain files.
-            Handles strand flips and b37/UCSC contig name mismatches.
-          </dd>
-          <div class="g-op-cmd-wrap">
-            <pre class="g-op-cmd"><code>vcfkit liftover --chain hg19ToHg38.chain.gz input.vcf</code></pre>
-            <button class="g-op-copy" data-copy="vcfkit liftover --chain hg19ToHg38.chain.gz input.vcf" aria-label="Copy command" title="Copy">
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
-            </button>
+          <div class="g-op-body">
+            <dd>Convert between genome builds — hg19, hg38, T2T-CHM13 — using UCSC chain files. Handles strand flips and b37/UCSC contig name mismatches.</dd>
+            <div class="g-op-cmd-wrap">
+              <pre class="g-op-cmd"><code>vcfkit liftover --chain hg19ToHg38.chain.gz input.vcf</code></pre>
+              <button class="g-op-copy" data-copy="vcfkit liftover --chain hg19ToHg38.chain.gz input.vcf" aria-label="Copy command" title="Copy">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+              </button>
+            </div>
           </div>
         </div>
         <div class="g-op">
           <dt><a href="/commands/filter">filter</a></dt>
-          <dd>
-            Select variants with expressions over INFO, FORMAT, CHROM, POS, QUAL, and FILTER fields.
-            Or describe the filter in plain English with <code>--ask</code> and review the expression before it runs.
-          </dd>
-          <div class="g-op-cmd-wrap">
-            <pre class="g-op-cmd"><code>vcfkit filter 'INFO/AF &lt; 0.01 &amp;&amp; FILTER == "PASS"' input.vcf</code></pre>
-            <button class="g-op-copy" data-copy="vcfkit filter 'INFO/AF < 0.01 && FILTER == &quot;PASS&quot;' input.vcf" aria-label="Copy command" title="Copy">
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
-            </button>
+          <div class="g-op-body">
+            <dd>Select variants with expressions over INFO, FORMAT, CHROM, POS, QUAL, and FILTER fields. Or describe the filter in plain English with <code>--ask</code> and review the expression before it runs.</dd>
+            <div class="g-op-cmd-wrap">
+              <pre class="g-op-cmd"><code>vcfkit filter 'INFO/AF &lt; 0.01 &amp;&amp; FILTER == "PASS"' input.vcf</code></pre>
+              <button class="g-op-copy" data-copy="vcfkit filter 'INFO/AF < 0.01 && FILTER == &quot;PASS&quot;' input.vcf" aria-label="Copy command" title="Copy">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+              </button>
+            </div>
           </div>
         </div>
       </dl>
@@ -505,18 +502,6 @@ code {
   padding: 0 0 80px;
 }
 
-.g-demo-label {
-  display: flex;
-  align-items: baseline;
-  gap: 16px;
-  margin-bottom: 16px;
-}
-.g-demo-sublabel {
-  font-size: 0.8rem;
-  color: var(--g-text-dim);
-  opacity: 0.7;
-}
-.g-demo-label .g-section-h { margin-bottom: 0; }
 
 /* ── Generic section ─────────────────────────────────────────────────── */
 .g-section {
@@ -557,39 +542,42 @@ code {
 
 /* ── Operations ──────────────────────────────────────────────────────── */
 .g-ops {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 0;
-  border-top: 1px solid var(--g-border);
+  display: flex;
+  flex-direction: column;
 }
 
 .g-op {
-  display: flex;
-  flex-direction: column;
-  gap: 0;
-  padding: 28px 28px 28px 0;
-  border-right: 1px solid var(--g-border);
+  display: grid;
+  grid-template-columns: 150px 1fr;
+  gap: 0 40px;
+  padding: 28px 0;
+  border-top: 1px solid var(--g-border);
+  align-items: start;
 }
-.g-op:last-child { border-right: none; padding-right: 0; }
-.g-op:not(:first-child) { padding-left: 28px; padding-right: 28px; }
-.g-op:last-child { padding-right: 0; }
 
 .g-op dt {
   font-family: var(--font-mono);
   font-size: 0.9375rem;
   font-weight: 600;
   color: var(--g-text);
-  margin-bottom: 10px;
+  padding-top: 2px;
+  position: sticky;
+  top: 68px;
 }
 .g-op dt a { color: var(--g-text); }
 .g-op dt a:hover { color: var(--g-accent-hi); text-decoration: none; }
 
+.g-op-body {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
 .g-op dd {
   color: var(--g-text-dim);
-  line-height: 1.65;
-  font-size: 0.875rem;
-  margin-bottom: 12px;
-  flex: 1;
+  line-height: 1.7;
+  font-size: 0.9rem;
+  margin: 0;
 }
 
 .g-op-cmd-wrap {
@@ -754,20 +742,64 @@ code {
   margin-top: 20px !important;
 }
 
-/* ── Responsive ──────────────────────────────────────────────────────── */
-@media (max-width: 860px) {
-  .g-ops { grid-template-columns: 1fr; }
-  .g-op {
-    border-right: none;
-    border-bottom: 1px solid var(--g-border);
-    padding: 24px 0 !important;
-  }
-  .g-op:last-child { border-bottom: none; }
+/* ── Demo header ─────────────────────────────────────────────────────── */
+.g-demo-hd {
+  margin-bottom: 20px;
+}
+.g-demo-hd .g-section-h { margin-bottom: 6px; }
+.g-demo-sub {
+  font-size: 0.85rem;
+  color: var(--g-text-dim);
+  opacity: 0.75;
+  margin: 0;
 }
 
-@media (max-width: 600px) {
-  .g-bench-row { gap: 28px; }
-  .g-nav-links { gap: 16px; }
-  .g-hero { padding: 64px 0 48px; }
+/* ── Responsive ──────────────────────────────────────────────────────── */
+
+/* Tablet */
+@media (max-width: 768px) {
+  .g-section { padding: 52px 0; }
+  .g-hero { padding: 72px 0 52px; }
+  .g-demo-section { padding-top: 52px; padding-bottom: 52px; }
+
+  .g-op {
+    grid-template-columns: 110px 1fr;
+    gap: 0 24px;
+  }
+}
+
+/* Mobile */
+@media (max-width: 560px) {
+  .g-inner { padding: 0 16px; }
+
+  .g-nav-inner { padding: 0 16px; }
+
+  /* Hide text labels on small nav, keep icons */
+  .g-nav-link span.g-nav-text { display: none; }
+  /* Hide crates.io entirely on mobile */
+  .g-nav-crates { display: none; }
+  .g-nav-links { gap: 2px; }
+
+  .g-hero { padding: 56px 0 40px; }
+  .g-wordmark { margin-bottom: 14px; }
+  .g-tagline { margin-bottom: 12px; }
+  .g-tagline-sub { font-size: 0.875rem; margin-bottom: 24px; }
+
+  .g-install-cmd { font-size: 0.85rem; padding: 9px 12px; }
+
+  .g-section { padding: 44px 0; }
+
+  /* Stack ops to single column on mobile */
+  .g-op {
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+  .g-op dt { padding-top: 0; position: static; }
+
+  .g-bench-row { flex-direction: column; gap: 20px; }
+
+  .g-pre { font-size: 0.78rem; padding: 14px 16px; }
+
+  .g-footer .g-inner { gap: 6px; }
 }
 </style>
