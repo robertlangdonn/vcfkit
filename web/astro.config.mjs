@@ -52,6 +52,14 @@ export default defineConfig({
           attrs: { rel: 'icon', href: '/favicon.svg', type: 'image/svg+xml' },
         },
         {
+          tag: 'link',
+          attrs: { rel: 'icon', href: '/favicon.ico', sizes: '48x48 32x32 16x16' },
+        },
+        {
+          tag: 'link',
+          attrs: { rel: 'apple-touch-icon', href: '/apple-touch-icon.png' },
+        },
+        {
           tag: 'meta',
           attrs: { property: 'og:image', content: 'https://vcfkit.dev/og-image.png' },
         },
